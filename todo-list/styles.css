@@ -1,0 +1,158 @@
+/* A small, self-contained stylesheet. No frameworks, no build step.
+   Colors adapt to the visitor's light/dark preference automatically. */
+
+:root {
+  --accent: #14b8a6;
+  --bg: #0b0c0e;
+  --surface: #14161a;
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #e7e9ee;
+  --muted: #9aa0ac;
+  --radius: 16px;
+  --shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f5f7f9;
+    --surface: #ffffff;
+    --border: rgba(0, 0, 0, 0.08);
+    --text: #14161a;
+    --muted: #5b626e;
+    --shadow: 0 24px 50px -28px rgba(20, 22, 26, 0.28);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(1000px 500px at 50% -10%, rgba(20, 184, 166, 0.16), transparent 60%),
+    var(--bg);
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+}
+
+.sub {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.add {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  padding: 12px 14px;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.btn {
+  padding: 12px 16px;
+  font: inherit;
+  font-weight: 600;
+  color: #06231f;
+  background: var(--accent);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  filter: brightness(1.08);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.list {
+  list-style: none;
+  margin: 20px 0 0;
+  padding: 0;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--border);
+}
+
+.item input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
+.text {
+  flex: 1;
+  word-break: break-word;
+}
+
+.item.done .text {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.del {
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 4px 6px;
+  border-radius: 8px;
+}
+
+.del:hover {
+  color: var(--text);
+}
+
+.del:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.count {
+  margin: 18px 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}

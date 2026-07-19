@@ -1,0 +1,142 @@
+/* This tutorial is all about theming, so the colors are driven by a
+   [data-theme] attribute on <html> that JavaScript sets — not only by the OS
+   preference. Each palette is just a set of CSS variables. */
+
+:root {
+  --accent: #8b5cf6;
+  --radius: 16px;
+}
+
+/* Dark palette: the default, and whenever data-theme="dark". */
+:root,
+[data-theme="dark"] {
+  --bg: #0b0c0e;
+  --surface: #14161a;
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #e7e9ee;
+  --muted: #9aa0ac;
+  --shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+}
+
+/* Light palette: whenever data-theme="light". */
+[data-theme="light"] {
+  --bg: #f5f7f9;
+  --surface: #ffffff;
+  --border: rgba(0, 0, 0, 0.08);
+  --text: #14161a;
+  --muted: #5b626e;
+  --shadow: 0 24px 50px -28px rgba(20, 22, 26, 0.28);
+}
+
+/* Before JavaScript has set a theme, respect the visitor's OS choice so the
+   very first paint already looks right. Once data-theme is set, that wins. */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) {
+    --bg: #f5f7f9;
+    --surface: #ffffff;
+    --border: rgba(0, 0, 0, 0.08);
+    --text: #14161a;
+    --muted: #5b626e;
+    --shadow: 0 24px 50px -28px rgba(20, 22, 26, 0.28);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(1000px 500px at 50% -10%, rgba(139, 92, 246, 0.16), transparent 60%),
+    var(--bg);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+}
+
+.sub {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  font: inherit;
+  font-weight: 600;
+  color: #1a1033;
+  background: var(--accent);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  filter: brightness(1.08);
+}
+
+.btn:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.demo {
+  margin-top: 24px;
+  padding: 20px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  transition: background 0.25s ease, border-color 0.25s ease;
+}
+
+.demo h2 {
+  margin: 0 0 8px;
+  font-size: 1rem;
+}
+
+.demo p {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.link {
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.swatch {
+  height: 40px;
+  margin-top: 16px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--accent), transparent);
+}

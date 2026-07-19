@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Weather Right Now</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Weather Right Now</h1>
+      <p class="sub">Type a city and see what it's doing outside.</p>
+
+      <form id="form" class="search">
+        <input
+          id="city"
+          class="input"
+          type="text"
+          placeholder="e.g. Tokyo"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="btn" type="submit">Search</button>
+      </form>
+
+      <p id="status" class="status" role="status"></p>
+
+      <article id="card" class="weather" hidden>
+        <p id="place" class="place"></p>
+        <div id="icon" class="icon" aria-hidden="true"></div>
+        <p id="temp" class="temp"></p>
+        <p id="condition" class="condition"></p>
+        <div class="stats">
+          <div><strong id="humidity">0%</strong><span>humidity</span></div>
+          <div><strong id="wind">0 km/h</strong><span>wind</span></div>
+        </div>
+      </article>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

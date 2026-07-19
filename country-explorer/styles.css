@@ -1,0 +1,166 @@
+/* A small, self-contained stylesheet. No frameworks, no build step.
+   Colors adapt to the visitor's light/dark preference automatically. */
+
+:root {
+  --accent: #14b8a6;
+  --bg: #0b0c0e;
+  --surface: #14161a;
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #e7e9ee;
+  --muted: #9aa0ac;
+  --radius: 16px;
+  --shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f5f7f9;
+    --surface: #ffffff;
+    --border: rgba(0, 0, 0, 0.08);
+    --text: #14161a;
+    --muted: #5b626e;
+    --shadow: 0 24px 50px -28px rgba(20, 22, 26, 0.28);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(1000px 500px at 50% -10%, rgba(20, 184, 166, 0.16), transparent 60%),
+    var(--bg);
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+}
+
+.sub {
+  margin: 0 0 20px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.search {
+  display: flex;
+  gap: 8px;
+}
+
+.input {
+  flex: 1;
+  padding: 12px 14px;
+  font: inherit;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.btn {
+  display: inline-block;
+  padding: 12px 16px;
+  font: inherit;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  color: #fff;
+  background: var(--accent);
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.btn:hover {
+  filter: brightness(1.08);
+}
+
+.btn.ghost {
+  width: 100%;
+  margin-top: 20px;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+}
+
+.status {
+  min-height: 1.2em;
+  margin: 16px 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.country {
+  margin-top: 8px;
+}
+
+.flag {
+  display: block;
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
+.name {
+  margin: 16px 0 0;
+  font-size: 1.35rem;
+  text-align: center;
+}
+
+.region {
+  margin: 4px 0 0;
+  color: var(--accent);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.facts {
+  margin-top: 20px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 10px 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.row:last-child {
+  border-bottom: none;
+}
+
+.row strong {
+  color: var(--text);
+  font-size: 0.95rem;
+  text-align: right;
+}

@@ -1,0 +1,5 @@
+FROM rust as planner
+WORKDIR /app
+COPY bin/rust-pipeline .
+COPY .env .
+CMD ["/app/rust-pipeline"]

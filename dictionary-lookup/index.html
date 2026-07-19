@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dictionary Lookup</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Dictionary Lookup</h1>
+      <p class="sub">Look up any English word and read what it means.</p>
+
+      <form id="form" class="search">
+        <input
+          id="word"
+          class="input"
+          type="text"
+          placeholder="e.g. serendipity"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="btn" type="submit">Look up</button>
+      </form>
+
+      <p id="status" class="status" role="status"></p>
+
+      <article id="entry" class="entry" hidden>
+        <h2 id="word-title" class="word"></h2>
+        <p id="phonetic" class="phonetic"></p>
+        <div id="meanings" class="meanings"></div>
+      </article>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

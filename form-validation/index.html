@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Form Validation</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Create your account</h1>
+      <p class="sub">A sign-up form that checks your input before accepting it.</p>
+
+      <!-- novalidate turns off the browser's own popups so we can show ours. -->
+      <form id="form" novalidate>
+        <label for="name">Name</label>
+        <input id="name" class="input" type="text" autocomplete="off" />
+        <p id="nameError" class="error"></p>
+
+        <label for="email">Email</label>
+        <input id="email" class="input" type="email" autocomplete="off" />
+        <p id="emailError" class="error"></p>
+
+        <label for="password">Password</label>
+        <input id="password" class="input" type="password" />
+        <p id="passwordError" class="error"></p>
+
+        <label for="confirm">Confirm password</label>
+        <input id="confirm" class="input" type="password" />
+        <p id="confirmError" class="error"></p>
+
+        <button class="btn" type="submit">Sign up</button>
+        <p id="success" class="success" role="status"></p>
+      </form>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -1,0 +1,158 @@
+/* A small, self-contained stylesheet. No frameworks, no build step.
+   Colors adapt to the visitor's light/dark preference automatically. */
+
+:root {
+  --accent: #ec4899;
+  --bg: #0b0c0e;
+  --surface: #14161a;
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #e7e9ee;
+  --muted: #9aa0ac;
+  --radius: 16px;
+  --shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --bg: #f5f7f9;
+    --surface: #ffffff;
+    --border: rgba(0, 0, 0, 0.08);
+    --text: #14161a;
+    --muted: #5b626e;
+    --shadow: 0 24px 50px -28px rgba(20, 22, 26, 0.28);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(1000px 500px at 50% -10%, rgba(236, 72, 153, 0.16), transparent 60%),
+    var(--bg);
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+}
+
+.sub {
+  margin: 0 0 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.swatch {
+  height: 96px;
+  margin: 16px 0 4px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+label {
+  display: block;
+  margin: 18px 0 6px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.color {
+  width: 100%;
+  height: 44px;
+  padding: 4px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.color:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.values {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.value {
+  flex: 1;
+  padding: 12px 10px;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+}
+
+.value:hover {
+  border-color: var(--accent);
+}
+
+.value:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.hint {
+  margin: 20px 0 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.shades {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.shade {
+  padding: 22px 2px 6px;
+  font-size: 0.55rem;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.shade:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.toast {
+  min-height: 1.2em;
+  margin: 16px 0 0;
+  font-size: 0.85rem;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.toast.show {
+  opacity: 1;
+}

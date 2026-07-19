@@ -1,0 +1,127 @@
+/* A small, self-contained stylesheet. No frameworks, no build step.
+   Colors adapt to the visitor's light/dark preference automatically. */
+
+:root {
+  --accent: #f97316;
+  --up: #22c55e;
+  --down: #ef4444;
+  --bg: #0b0c0e;
+  --surface: #14161a;
+  --border: rgba(255, 255, 255, 0.09);
+  --text: #e7e9ee;
+  --muted: #9aa0ac;
+  --radius: 16px;
+  --shadow: 0 24px 60px -24px rgba(0, 0, 0, 0.7);
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --up: #16a34a;
+    --down: #dc2626;
+    --bg: #f5f7f9;
+    --surface: #ffffff;
+    --border: rgba(0, 0, 0, 0.08);
+    --text: #14161a;
+    --muted: #5b626e;
+    --shadow: 0 24px 50px -28px rgba(20, 22, 26, 0.28);
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--text);
+  background:
+    radial-gradient(1000px 500px at 50% -10%, rgba(249, 115, 22, 0.16), transparent 60%),
+    var(--bg);
+}
+
+.card {
+  width: 100%;
+  max-width: 420px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+h1 {
+  margin: 0 0 4px;
+  font-size: 1.35rem;
+}
+
+.sub {
+  margin: 0 0 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.rows {
+  margin-top: 8px;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 0;
+  border-top: 1px solid var(--border);
+}
+
+.row:first-child {
+  border-top: none;
+}
+
+.coin strong {
+  display: block;
+  font-size: 1rem;
+}
+
+.coin span {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.price {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.change {
+  min-width: 84px;
+  text-align: right;
+  font-size: 0.85rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.change.up {
+  color: var(--up);
+}
+
+.change.down {
+  color: var(--down);
+}
+
+.status {
+  min-height: 1.2em;
+  margin: 16px 0 0;
+  font-size: 0.85rem;
+  color: var(--accent);
+}
+
+.updated {
+  margin: 6px 0 0;
+  font-size: 0.75rem;
+  color: var(--muted);
+}

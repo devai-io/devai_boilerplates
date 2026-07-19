@@ -1,0 +1,12 @@
+[package]
+name = "rust-pipeline"
+version = "0.1.0"
+authors = ["Leonardo Devai <leonardo@devai.io>"]
+edition = "2018"
+
+[dependencies]
+chrono = "0.4"
+
+[[bin]]
+name = "rust-pipeline"
+path = "src/main.rs"

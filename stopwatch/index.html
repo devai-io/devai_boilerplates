@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Stopwatch</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Stopwatch</h1>
+      <p class="sub">Start, stop, reset — and record lap times.</p>
+
+      <div id="display" class="display" role="timer" aria-live="off">00:00.00</div>
+
+      <div class="controls">
+        <button id="startStop" class="btn">Start</button>
+        <button id="lap" class="btn ghost">Lap</button>
+        <button id="reset" class="btn ghost">Reset</button>
+      </div>
+
+      <ol id="laps" class="laps"></ol>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

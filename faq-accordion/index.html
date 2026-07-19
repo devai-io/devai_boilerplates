@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FAQ Accordion</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Frequently asked questions</h1>
+      <p class="sub">Everything a beginner wonders about learning to code.</p>
+
+      <div class="faq">
+        <div class="item">
+          <button class="question" type="button" aria-expanded="false" aria-controls="a1">
+            <span>Do I need to be good at math?</span>
+            <span class="icon" aria-hidden="true">+</span>
+          </button>
+          <div id="a1" class="answer">
+            <p>
+              No. Most everyday programming is logic and looking things up, not
+              hard math. If you can follow a recipe, you can code.
+            </p>
+          </div>
+        </div>
+
+        <div class="item">
+          <button class="question" type="button" aria-expanded="false" aria-controls="a2">
+            <span>Which language should I start with?</span>
+            <span class="icon" aria-hidden="true">+</span>
+          </button>
+          <div id="a2" class="answer">
+            <p>
+              JavaScript is a friendly first pick: it runs in every browser with
+              nothing to install, which is exactly what these tutorials use.
+            </p>
+          </div>
+        </div>
+
+        <div class="item">
+          <button class="question" type="button" aria-expanded="false" aria-controls="a3">
+            <span>How long until I can build something?</span>
+            <span class="icon" aria-hidden="true">+</span>
+          </button>
+          <div id="a3" class="answer">
+            <p>
+              You already can — each tutorial here is a small, complete app. A few
+              weeks of steady practice and you'll be changing them confidently.
+            </p>
+          </div>
+        </div>
+
+        <div class="item">
+          <button class="question" type="button" aria-expanded="false" aria-controls="a4">
+            <span>Do I need an expensive computer?</span>
+            <span class="icon" aria-hidden="true">+</span>
+          </button>
+          <div id="a4" class="answer">
+            <p>
+              Not at all. Any laptop from the last decade and a free text editor
+              are plenty to learn on and build real projects.
+            </p>
+          </div>
+        </div>
+
+        <div class="item">
+          <button class="question" type="button" aria-expanded="false" aria-controls="a5">
+            <span>What if I get stuck?</span>
+            <span class="icon" aria-hidden="true">+</span>
+          </button>
+          <div id="a5" class="answer">
+            <p>
+              Getting stuck is the job — every coder does, daily. Read the error
+              out loud, change one thing at a time, and search the exact message.
+            </p>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

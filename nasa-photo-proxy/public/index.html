@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>NASA Photo of the Day</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>NASA Photo of the Day</h1>
+      <p class="sub">Fetched through our own little backend — the API key stays hidden.</p>
+
+      <p id="status" class="status" role="status">Loading today's photo…</p>
+
+      <figure id="figure" hidden>
+        <img id="image" alt="" />
+        <figcaption>
+          <h2 id="title"></h2>
+          <p id="date" class="date"></p>
+          <p id="explanation" class="explanation"></p>
+          <p id="credit" class="credit"></p>
+        </figcaption>
+      </figure>
+
+      <button id="reload" class="btn">Load again</button>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

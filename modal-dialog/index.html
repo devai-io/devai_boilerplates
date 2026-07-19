@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Modal Dialog</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Modal Dialog</h1>
+      <p class="sub">An accessible pop-up, using the browser's own tools.</p>
+
+      <button id="open" class="btn">Open dialog</button>
+      <p id="status" class="status" role="status">The dialog is closed.</p>
+    </main>
+
+    <dialog id="dialog" class="dialog" aria-labelledby="dialogTitle">
+      <div class="dialog-body">
+        <button id="close" class="close" type="button" aria-label="Close dialog">
+          ✕
+        </button>
+        <h2 id="dialogTitle">Welcome aboard 🎉</h2>
+        <p>
+          This little box is a native <code>&lt;dialog&gt;</code>. The page behind it
+          is frozen, your keyboard focus is trapped inside, and pressing
+          <kbd>Esc</kbd> closes it — none of which we had to code by hand.
+        </p>
+        <button id="ok" class="btn">OK, got it</button>
+      </div>
+    </dialog>
+
+    <script src="app.js"></script>
+  </body>
+</html>

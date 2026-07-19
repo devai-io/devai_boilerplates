@@ -1,0 +1,10 @@
+# Options for `webdev build` (dart2js). To bake in a non-default API URL when
+# building with webdev, add a define here, e.g.:
+#   - -DAPI_URL=https://api.example.com
+targets:
+  $default:
+    builders:
+      build_web_compilers:entrypoint:
+        options:
+          dart2js_args:
+            - -O2

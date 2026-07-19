@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>What's My IP &amp; Location</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>What's My IP &amp; Location</h1>
+      <p class="sub">These are the facts the internet can see about your connection.</p>
+
+      <p id="status" class="status" role="status"></p>
+
+      <section id="result" class="result" hidden>
+        <p class="label">Your IP address</p>
+        <p id="ip" class="ip"></p>
+
+        <div class="facts">
+          <div class="row"><span>Location</span><strong id="location"></strong></div>
+          <div class="row"><span>Country</span><strong id="country"></strong></div>
+          <div class="row"><span>Provider (ISP)</span><strong id="isp"></strong></div>
+          <div class="row"><span>Time zone</span><strong id="timezone"></strong></div>
+        </div>
+
+        <a id="map" class="btn ghost" target="_blank" rel="noreferrer">View on map</a>
+      </section>
+
+      <button id="refresh" class="btn block" type="button">Refresh</button>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

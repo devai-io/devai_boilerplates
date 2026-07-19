@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Color Picker &amp; Palette</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Color Picker &amp; Palette</h1>
+      <p class="sub">Pick a color, copy its code, grab a matching palette.</p>
+
+      <div id="swatch" class="swatch"></div>
+
+      <label for="color">Choose a color</label>
+      <input id="color" class="color" type="color" value="#ec4899" />
+
+      <div class="values">
+        <button id="hexValue" class="value" type="button" title="Click to copy">
+          #EC4899
+        </button>
+        <button id="rgbValue" class="value" type="button" title="Click to copy">
+          rgb(236, 72, 153)
+        </button>
+      </div>
+
+      <p class="hint">Palette — click any swatch to copy its HEX</p>
+      <div id="shades" class="shades"></div>
+
+      <p id="toast" class="toast" role="status" aria-live="polite"></p>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

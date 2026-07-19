@@ -1,0 +1,15 @@
+name: blog_dart
+description: Minimal blog client for the devai.io blog API — hand-rolled Dart web SPA, no Flutter.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  web: ^1.1.0
+
+dev_dependencies:
+  build_runner: ^2.4.13
+  build_web_compilers: ^4.0.11
+  lints: ^5.1.1

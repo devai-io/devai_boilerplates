@@ -1,0 +1,13 @@
+{
+  "name": "nasa-photo-proxy",
+  "version": "1.0.0",
+  "private": true,
+  "type": "commonjs",
+  "description": "A tiny Node backend that hides an API key and serves a web page.",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

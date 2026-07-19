@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dark Mode Toggle</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Dark Mode Toggle</h1>
+      <p class="sub">One button, two themes — and it remembers your pick.</p>
+
+      <button id="toggle" class="btn" type="button" aria-pressed="false">
+        <span id="toggleIcon" aria-hidden="true">🌙</span>
+        <span id="toggleText">Dark</span>
+      </button>
+
+      <section class="demo">
+        <h2>Preview</h2>
+        <p>
+          This little card follows the theme. Watch the background, the text, and
+          the accent color all swap when you flip the switch.
+        </p>
+        <a class="link" href="#">An accent-colored link</a>
+        <div class="swatch" aria-hidden="true"></div>
+      </section>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

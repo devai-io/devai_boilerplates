@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Star Rating</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Star Rating</h1>
+      <p class="sub">Hover to preview, click to rate. Arrow keys work too.</p>
+
+      <div id="stars" class="stars" role="group" aria-label="Rate from 1 to 5 stars">
+        <button class="star" type="button" aria-label="Rate 1 star">★</button>
+        <button class="star" type="button" aria-label="Rate 2 stars">★</button>
+        <button class="star" type="button" aria-label="Rate 3 stars">★</button>
+        <button class="star" type="button" aria-label="Rate 4 stars">★</button>
+        <button class="star" type="button" aria-label="Rate 5 stars">★</button>
+      </div>
+
+      <p id="output" class="output" role="status" aria-live="polite">
+        Click a star to rate.
+      </p>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

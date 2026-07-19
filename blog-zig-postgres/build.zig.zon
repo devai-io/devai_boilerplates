@@ -1,0 +1,13 @@
+.{
+    .name = .blog_zig_postgres,
+    .version = "0.1.0",
+    .minimum_zig_version = "0.16.0",
+    .fingerprint = 0x2a7521723f702118, // package identity; regenerate if you fork
+    .dependencies = .{
+        .pg = .{
+            .url = "git+https://github.com/karlseguin/pg.zig?ref=master#c9213c2a0f9942e76ad856efbd2e5847f153b55e",
+            .hash = "pg-0.0.0-Wp_7gdaoBgCY54xf40F0CA3J3C28EbeYadws6t0ej6EE",
+        },
+    },
+    .paths = .{""},
+}

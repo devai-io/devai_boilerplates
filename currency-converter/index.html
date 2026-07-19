@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Currency Converter</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Currency Converter</h1>
+      <p class="sub">Turn one currency into another at today's rate.</p>
+
+      <label for="amount">Amount</label>
+      <input
+        id="amount"
+        class="input"
+        type="number"
+        inputmode="decimal"
+        min="0"
+        step="0.01"
+        value="100"
+        placeholder="e.g. 100"
+      />
+
+      <div class="pair">
+        <div class="field">
+          <label for="from">From</label>
+          <select id="from" class="select"></select>
+        </div>
+        <div class="field">
+          <label for="to">To</label>
+          <select id="to" class="select"></select>
+        </div>
+      </div>
+
+      <p id="status" class="status" role="status"></p>
+
+      <div class="result">
+        <p id="rate" class="rate"></p>
+        <p id="converted" class="converted">—</p>
+      </div>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

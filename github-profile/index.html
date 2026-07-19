@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>GitHub Profile Card</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>GitHub Profile Card</h1>
+      <p class="sub">Type a username and see their public profile.</p>
+
+      <form id="form" class="search">
+        <input
+          id="username"
+          class="input"
+          type="text"
+          placeholder="e.g. torvalds"
+          autocomplete="off"
+          spellcheck="false"
+        />
+        <button class="btn" type="submit">Search</button>
+      </form>
+
+      <p id="status" class="status" role="status"></p>
+
+      <article id="card" class="profile" hidden>
+        <img id="avatar" class="avatar" alt="" />
+        <h2 id="name" class="name"></h2>
+        <p id="login" class="login"></p>
+        <p id="bio" class="bio"></p>
+        <div class="stats">
+          <div><strong id="repos">0</strong><span>repos</span></div>
+          <div><strong id="followers">0</strong><span>followers</span></div>
+          <div><strong id="following">0</strong><span>following</span></div>
+        </div>
+        <a id="link" class="btn ghost" target="_blank" rel="noreferrer">View on GitHub</a>
+      </article>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

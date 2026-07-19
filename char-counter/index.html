@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Character Counter</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="card">
+      <h1>Character Counter</h1>
+      <p class="sub">Live feedback as you type, tweet-style.</p>
+
+      <label for="text">What's happening?</label>
+      <textarea
+        id="text"
+        class="textarea"
+        rows="4"
+        placeholder="Say something in 280 characters…"
+      ></textarea>
+
+      <div class="footer">
+        <div class="meter">
+          <!-- Inline SVG ring. The second circle's stroke gets "unrolled" by JS
+               to show how full the message is. aria-hidden: the number says it too. -->
+          <svg class="ring" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
+            <circle class="ring-track" cx="22" cy="22" r="18" />
+            <circle id="ringProgress" class="ring-progress" cx="22" cy="22" r="18" />
+          </svg>
+          <span id="remaining" class="remaining" role="status" aria-live="polite">280</span>
+        </div>
+        <button id="post" class="btn" type="button">Post</button>
+      </div>
+
+      <p id="status" class="status" role="status" aria-live="polite"></p>
+    </main>
+
+    <script src="app.js"></script>
+  </body>
+</html>

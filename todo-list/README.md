@@ -16,11 +16,10 @@ changes_ — plus how to save data in the browser so it survives a refresh.
 **The easy way:** double-click `index.html`. It opens in your browser and works.
 There is nothing to install and no build step.
 
-**With Docker** (optional, this is how the real site ships it):
+Or serve it like production:
 
 ```sh
-docker build -t todo-list .
-docker run -p 8080:80 todo-list   # then open http://localhost:8080
+docker compose up --build   # then open http://localhost:8080
 ```
 
 ## The idea in 30 seconds
@@ -58,8 +57,20 @@ out of sync. That's the trick.
 ## Files
 
 ```
-index.html    the input box, the list, and the count
-styles.css    how it looks (light + dark)
-app.js        the array, save/load, and the render function
-Dockerfile    optional: serve it with nginx
+index.html      the input box, the list, and the count
+styles.css      how it looks (light + dark)
+app.js          the array, save/load, and the render function
+Dockerfile      optional: serve it with nginx
+compose.yaml    optional: docker compose up --build
 ```
+
+## Deploy
+
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
+JavaScript, one concept at a time.

@@ -18,6 +18,9 @@ docker compose up --build
 curl localhost:8080/health
 ```
 
+Postgres keeps its state in `./data/postgres` (created on first run,
+gitignored) — `rm -rf data` for a clean slate.
+
 Locally (Postgres from compose, app on your machine):
 
 ```sh
@@ -79,7 +82,7 @@ auth.go             register/login, bcrypt, JWT issue + verify middleware
 posts.go            post handlers, slugs, excerpts
 schema.sql          users + posts tables (idempotent)
 Dockerfile          multi-stage build → distroless static image
-docker-compose.yml  app + Postgres 16 with healthcheck
+compose.yaml        app + Postgres 16, state bind-mounted in ./data/postgres
 extras/             drop-in Clerk and Auth0 auth (see below)
 ```
 
@@ -97,3 +100,14 @@ Local auth is deliberately contained in `auth.go` so it can be swapped
 wholesale. `extras/auth-clerk/` and `extras/auth-auth0/` each contain a single
 drop-in verifier (JWKS-based RS256 validation) plus a README with the exact
 delete/replace steps.
+
+## Deploy
+
+Push this folder to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` repo variables and
+the `DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the blog engine series: one contract,
+eight backends. Siblings: `blog-{go,rust,zig,python}-{postgres,mongo}`.

@@ -17,11 +17,10 @@ letting the browser do it is both less code and more accessible.
 **The easy way:** double-click `index.html`. It opens in your browser and works.
 There is nothing to install and no build step.
 
-**With Docker** (optional, this is how the real site ships it):
+Or serve it like production:
 
 ```sh
-docker build -t modal-dialog .
-docker run -p 8080:80 modal-dialog   # then open http://localhost:8080
+docker compose up --build   # then open http://localhost:8080
 ```
 
 ## The idea in 30 seconds
@@ -59,8 +58,20 @@ Everything else is just deciding _when_ to call `close()`.
 ## Files
 
 ```
-index.html    the open button and the <dialog> markup
-styles.css    how it looks, including the ::backdrop (light + dark)
-app.js        open, and the four ways to close
-Dockerfile    optional: serve it with nginx
+index.html      the open button and the <dialog> markup
+styles.css      how it looks, including the ::backdrop (light + dark)
+app.js          open, and the four ways to close
+Dockerfile      optional: serve it with nginx
+compose.yaml    optional: docker compose up --build
 ```
+
+## Deploy
+
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
+JavaScript, one concept at a time.

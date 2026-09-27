@@ -16,11 +16,10 @@ things that always go wrong: the user doesn't exist, and the network hiccups.
 **The easy way:** double-click `index.html`. It works offline-free — as long as you
 have internet, because it calls GitHub live.
 
-**With Docker:**
+Or serve it like production:
 
 ```sh
-docker build -t github-profile .
-docker run -p 8080:80 github-profile   # then open http://localhost:8080
+docker compose up --build   # then open http://localhost:8080
 ```
 
 ## The idea in 30 seconds
@@ -65,5 +64,17 @@ learning; if you hit a `403`, wait a bit. Production apps send an auth token —
 index.html    the search box and the (hidden until loaded) card
 styles.css    how it looks (light + dark)
 app.js        fetch the profile, handle errors, render it
-Dockerfile    optional: serve it with nginx
+Dockerfile    serve it with nginx (what compose builds)
+compose.yaml  serve it like production: docker compose up --build
 ```
+
+## Deploy
+
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
+from the internet.

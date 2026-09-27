@@ -16,11 +16,10 @@ multiply, show the answer. You'll also fill a `<select>` dropdown from live data
 **The easy way:** double-click `index.html`. It works as long as you have internet,
 because it calls the exchange-rate API live.
 
-**With Docker:**
+Or serve it like production:
 
 ```sh
-docker build -t currency-converter .
-docker run -p 8080:80 currency-converter   # then open http://localhost:8080
+docker compose up --build   # then open http://localhost:8080
 ```
 
 ## The idea in 30 seconds
@@ -77,5 +76,17 @@ fails, the `catch` block shows a friendly message instead of a broken number.
 index.html    the amount box and the two dropdowns
 styles.css    how it looks (light + dark)
 app.js        load currencies, fetch the rate, do the math
-Dockerfile    optional: serve it with nginx
+Dockerfile    serve it with nginx (what compose builds)
+compose.yaml  serve it like production: docker compose up --build
 ```
+
+## Deploy
+
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
+from the internet.

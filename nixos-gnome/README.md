@@ -55,3 +55,12 @@ home/user.nix                      dconf settings + declarative Shell extensions
   things in the GNOME Settings app.
 - `system.stateVersion` / `home.stateVersion` mark the release you first installed;
   leave them alone when upgrading.
+
+## CI
+
+The shipped workflow (`.github/workflows/ci.yml`) evaluates the flake with
+`nix flake check --no-build` on every push.
+
+---
+Part of [devai.io](https://devai.io) — the NixOS desktop series.
+Siblings: `nixos-{hyprland,gnome,plasma}`.

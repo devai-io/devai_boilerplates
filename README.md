@@ -8,9 +8,16 @@ snippet: clone the repo (or grab a single folder) and run it.
 ```sh
 git clone https://github.com/devai-io/devai_boilerplates.git
 cd devai_boilerplates/tip-calculator
+docker compose up --build
 ```
 
 Browse them with previews and one-click zips at **[devai.io/templates](https://devai.io/templates)**.
+
+Every project follows the same standard — [`GUIDELINES.md`](./GUIDELINES.md):
+`docker compose up --build` runs it, service state lives in bind-mounted
+`./data/` folders, and a shipped GitHub Actions workflow tests, publishes and
+deploys it the moment a folder becomes your own repo. Learn one project and
+you know your way around all of them.
 
 
 ## Web Basics

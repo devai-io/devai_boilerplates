@@ -5,3 +5,5 @@ node_modules
 README.md
 Dockerfile
 .dockerignore
+compose.yaml
+.github

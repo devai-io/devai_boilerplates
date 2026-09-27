@@ -1,0 +1,8 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:3000"
+    environment:
+      PORT: "3000"
+      NASA_API_KEY: ${NASA_API_KEY:-DEMO_KEY}

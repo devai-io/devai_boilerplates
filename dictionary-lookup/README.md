@@ -16,11 +16,10 @@ case where a word simply doesn't exist.
 **The easy way:** double-click `index.html`. It opens in your browser and works — as
 long as you have internet, because it calls the dictionary API live.
 
-**With Docker** (optional, this is how the real site ships it):
+Or serve it like production:
 
 ```sh
-docker build -t dictionary-lookup .
-docker run -p 8080:80 dictionary-lookup   # then open http://localhost:8080
+docker compose up --build   # then open http://localhost:8080
 ```
 
 ## The idea in 30 seconds
@@ -72,5 +71,17 @@ is. A `404` here just means the word isn't in the dictionary, not that anything 
 index.html    the search box and the (hidden until loaded) result
 styles.css    how it looks (light + dark)
 app.js        fetch the word, walk the nested JSON, render it
-Dockerfile    optional: serve it with nginx
+Dockerfile    serve it with nginx (what compose builds)
+compose.yaml  serve it like production: docker compose up --build
 ```
+
+## Deploy
+
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
+from the internet.

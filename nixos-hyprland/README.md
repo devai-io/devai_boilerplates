@@ -56,3 +56,12 @@ home/user.nix                      Hyprland keybinds, waybar, kitty, wofi, mako,
   leave them alone when upgrading.
 - Hyprland comes from nixpkgs (binary-cached), not the upstream flake — updates
   arrive with `nix flake update`.
+
+## CI
+
+The shipped workflow (`.github/workflows/ci.yml`) evaluates the flake with
+`nix flake check --no-build` on every push.
+
+---
+Part of [devai.io](https://devai.io) — the NixOS desktop series.
+Siblings: `nixos-{hyprland,gnome,plasma}`.

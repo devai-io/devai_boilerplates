@@ -16,11 +16,10 @@ you keep the last good numbers on screen instead of flashing an error.
 **The easy way:** double-click `index.html`. It works as long as you have internet,
 because it calls the price API live.
 
-**With Docker:**
+Or serve it like production:
 
 ```sh
-docker build -t crypto-ticker .
-docker run -p 8080:80 crypto-ticker   # then open http://localhost:8080
+docker compose up --build   # then open http://localhost:8080
 ```
 
 ## The idea in 30 seconds
@@ -77,5 +76,17 @@ holding the last good prices until the next successful call. Waiting a bit clear
 index.html    the ticker container
 styles.css    how it looks (light + dark), green/red change colors
 app.js        poll the API, format prices, render rows
-Dockerfile    optional: serve it with nginx
+Dockerfile    serve it with nginx (what compose builds)
+compose.yaml  serve it like production: docker compose up --build
 ```
+
+## Deploy
+
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
+from the internet.

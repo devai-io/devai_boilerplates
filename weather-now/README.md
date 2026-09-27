@@ -17,11 +17,10 @@ read.
 **The easy way:** double-click `index.html`. It works as long as you have internet,
 because it calls the weather services live.
 
-**With Docker:**
+Or serve it like production:
 
 ```sh
-docker build -t weather-now .
-docker run -p 8080:80 weather-now   # then open http://localhost:8080
+docker compose up --build   # then open http://localhost:8080
 ```
 
 ## The idea in 30 seconds
@@ -79,5 +78,17 @@ falls into the friendly `catch` message.
 index.html    the search box and the (hidden until loaded) weather card
 styles.css    how it looks (light + dark)
 app.js        chain the two fetches, map the code, render it
-Dockerfile    optional: serve it with nginx
+Dockerfile    serve it with nginx (what compose builds)
+compose.yaml  serve it like production: docker compose up --build
 ```
+
+## Deploy
+
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
+from the internet.

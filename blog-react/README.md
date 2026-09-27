@@ -6,10 +6,27 @@ of the devai.io blog backends (they all implement the same API contract).
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 20+ (or just Docker)
 - A blog backend running (default: `http://localhost:8080`)
 
-## Quickstart
+## Run
+
+    docker compose up --build
+
+The app is served at http://localhost:8081 — it expects a blog engine on
+http://localhost:8080, so start one of the backend siblings first (e.g.
+`docker compose up` in `blog-go-postgres/`).
+
+`VITE_API_URL` is compiled into the bundle at build time; the compose build keeps
+the default `http://localhost:8080`. Point the image at another API by rebuilding:
+
+```sh
+docker build --build-arg VITE_API_URL=https://api.example.com -t blog-react .
+```
+
+The image serves the built SPA from nginx with `try_files` fallback so deep links work.
+
+Dev mode with hot reload:
 
 ```sh
 cp .env.example .env      # set VITE_API_URL if your API is elsewhere
@@ -18,16 +35,6 @@ npm run dev
 ```
 
 Production build: `npm run build` → static files in `dist/`.
-
-Docker:
-
-```sh
-docker build --build-arg VITE_API_URL=https://api.example.com -t blog-react .
-docker run -p 3000:80 blog-react
-```
-
-The image serves the built SPA from nginx with `try_files` fallback so deep links work.
-Note that `VITE_API_URL` is compiled into the bundle at build time.
 
 ## Project layout
 
@@ -68,3 +75,14 @@ POST /posts        (auth) -> create {title, body}
 PUT  /posts/{id}   (auth) -> update {title?, body?, published?}
 DELETE /posts/{id} (auth) -> 204
 ```
+
+## Deploy
+
+Push this folder to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` repo variables and
+the `DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the blog frontend series: the same API,
+four takes. Siblings: `blog-{react,angular,dart,flutter}`.

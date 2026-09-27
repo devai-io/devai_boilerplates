@@ -23,11 +23,11 @@ python3 -m http.server 8000    # then open http://localhost:8000
 
 (That command comes built into most machines. Any static server works.)
 
-**With Docker** (the other option — this is how the real site ships it):
+Or serve it like production — nginx in compose serves `quotes.json` just as
+well as the Python one-liner does:
 
 ```sh
-docker build -t random-quote .
-docker run -p 8080:80 random-quote   # then open http://localhost:8080
+docker compose up --build   # then open http://localhost:8080
 ```
 
 ## The idea in 30 seconds
@@ -79,5 +79,17 @@ index.html    the quote card and the button
 styles.css    how it looks (light + dark)
 app.js        fetch the data, pick a random quote, render it
 quotes.json   the data — an array of { text, author } objects you can edit
-Dockerfile    optional: serve it with nginx
+Dockerfile    serve it with nginx (what compose builds)
+compose.yaml  serve it like production: docker compose up --build
 ```
+
+## Deploy
+
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
+from the internet.

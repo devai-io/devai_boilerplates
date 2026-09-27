@@ -18,11 +18,10 @@ accessible with real `<button>`s and `aria-label`s, and how to persist a value w
 **The easy way:** double-click `index.html`. It opens in your browser and works.
 There is nothing to install and no build step.
 
-**With Docker** (optional, this is how the real site ships it):
+Or serve it like production:
 
 ```sh
-docker build -t star-rating .
-docker run -p 8080:80 star-rating   # then open http://localhost:8080
+docker compose up --build   # then open http://localhost:8080
 ```
 
 ## The idea in 30 seconds
@@ -62,8 +61,20 @@ decides which number that is.
 ## Files
 
 ```
-index.html    the five star buttons and the output line
-styles.css    how it looks, including the filled "on" state (light + dark)
-app.js        hover preview, click/keyboard commit, and localStorage
-Dockerfile    optional: serve it with nginx
+index.html      the five star buttons and the output line
+styles.css      how it looks, including the filled "on" state (light + dark)
+app.js          hover preview, click/keyboard commit, and localStorage
+Dockerfile      optional: serve it with nginx
+compose.yaml    optional: docker compose up --build
 ```
+
+## Deploy
+
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
+JavaScript, one concept at a time.

@@ -17,11 +17,10 @@ and how to start and stop auto-play with `setInterval` / `clearInterval`.
 There is nothing to install and no build step. (The slides are CSS gradients, so
 there are no image files to load — it even works fully offline.)
 
-**With Docker** (optional, this is how the real site ships it):
+Or serve it like production:
 
 ```sh
-docker build -t image-slideshow .
-docker run -p 8080:80 image-slideshow   # then open http://localhost:8080
+docker compose up --build   # then open http://localhost:8080
 ```
 
 ## The idea in 30 seconds
@@ -64,8 +63,20 @@ ways.
 ## Files
 
 ```
-index.html    the slide, the arrows, and the dots container
-styles.css    how it looks (light + dark)
-app.js        the slides array, the index, and wrap-around logic
-Dockerfile    optional: serve it with nginx
+index.html      the slide, the arrows, and the dots container
+styles.css      how it looks (light + dark)
+app.js          the slides array, the index, and wrap-around logic
+Dockerfile      optional: serve it with nginx
+compose.yaml    optional: docker compose up --build
 ```
+
+## Deploy
+
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
+JavaScript, one concept at a time.

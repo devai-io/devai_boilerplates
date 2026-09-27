@@ -17,11 +17,10 @@ You'll also meet `setInterval` and how to build up a list of elements.
 **The easy way:** double-click `index.html`. It opens in your browser and works.
 There is nothing to install and no build step.
 
-**With Docker** (optional, this is how the real site ships it):
+Or serve it like production:
 
 ```sh
-docker build -t stopwatch .
-docker run -p 8080:80 stopwatch   # then open http://localhost:8080
+docker compose up --build   # then open http://localhost:8080
 ```
 
 ## The idea in 30 seconds
@@ -59,8 +58,20 @@ smooth — but the update rate never changes the actual time.
 ## Files
 
 ```
-index.html    the display and the three buttons
-styles.css    how it looks (light + dark)
-app.js        the timing logic and lap list
-Dockerfile    optional: serve it with nginx
+index.html      the display and the three buttons
+styles.css      how it looks (light + dark)
+app.js          the timing logic and lap list
+Dockerfile      optional: serve it with nginx
+compose.yaml    optional: docker compose up --build
 ```
+
+## Deploy
+
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
+
+---
+Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
+JavaScript, one concept at a time.

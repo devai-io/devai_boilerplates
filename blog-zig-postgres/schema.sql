@@ -16,4 +16,8 @@ create table if not exists posts (
     updated_at timestamptz not null default now()
 );
 
-create index if not exists posts_published_recent on posts (created_at desc) where published;
+-- When the post was first published, null while a draft. add column if not
+-- exists also upgrades databases created before the column existed.
+alter table posts add column if not exists published_at timestamptz;
+
+create index if not exists posts_published_at_recent on posts (published_at desc) where published;

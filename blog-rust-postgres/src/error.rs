@@ -39,7 +39,12 @@ impl IntoResponse for ApiError {
 
 impl From<JsonRejection> for ApiError {
     fn from(rejection: JsonRejection) -> Self {
-        Self::new(rejection.status(), rejection.body_text())
+        // axum answers well-formed JSON of the wrong shape with 422; the API says 400.
+        let status = match rejection {
+            JsonRejection::JsonDataError(_) => StatusCode::BAD_REQUEST,
+            _ => rejection.status(),
+        };
+        Self::new(status, rejection.body_text())
     }
 }
 

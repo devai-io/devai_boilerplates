@@ -15,6 +15,8 @@ pub struct Post {
     slug: String,
     body: String,
     published: bool,
+    /// None until the post is first published.
+    published_at: Option<DateTime<Utc>>,
     author_id: Uuid,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
@@ -26,7 +28,7 @@ pub struct PostSummary {
     title: String,
     slug: String,
     excerpt: String,
-    published_at: DateTime<Utc>,
+    published_at: Option<DateTime<Utc>>,
 }
 
 #[derive(Deserialize)]
@@ -45,8 +47,8 @@ pub struct UpdatePost {
 pub async fn list(State(state): State<AppState>) -> Result<Json<Vec<PostSummary>>, ApiError> {
     // left() counts characters, not bytes, so the excerpt never splits a UTF-8 sequence.
     let posts = sqlx::query_as::<_, PostSummary>(
-        "SELECT id, title, slug, left(body, 200) AS excerpt, created_at AS published_at \
-         FROM posts WHERE published ORDER BY created_at DESC",
+        "SELECT id, title, slug, left(body, 200) AS excerpt, published_at \
+         FROM posts WHERE published ORDER BY published_at DESC",
     )
     .fetch_all(&state.pool)
     .await?;
@@ -119,9 +121,11 @@ pub async fn update(
     let body = input.body.unwrap_or(post.body);
     let published = input.published.unwrap_or(post.published);
 
+    // published_at is stamped the first time the post is published, then kept.
     let post = with_unique_slug(&slug, |slug| {
         sqlx::query_as::<_, Post>(
-            "UPDATE posts SET title = $1, slug = $2, body = $3, published = $4, updated_at = now() \
+            "UPDATE posts SET title = $1, slug = $2, body = $3, published = $4, \
+             published_at = coalesce(published_at, CASE WHEN $4 THEN now() END), updated_at = now() \
              WHERE id = $5 RETURNING *",
         )
         .bind(&title)

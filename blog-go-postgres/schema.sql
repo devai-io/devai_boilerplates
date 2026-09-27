@@ -18,4 +18,8 @@ CREATE TABLE IF NOT EXISTS posts (
     updated_at timestamptz NOT NULL DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS posts_published_idx ON posts (published, created_at DESC);
+-- When the post was first published, null while a draft. ADD COLUMN IF NOT
+-- EXISTS also upgrades databases created before the column existed.
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS published_at timestamptz;
+
+CREATE INDEX IF NOT EXISTS posts_published_at_idx ON posts (published, published_at DESC);

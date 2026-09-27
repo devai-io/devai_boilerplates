@@ -45,8 +45,9 @@ dependency is pinned by hash in `build.zig.zon` and fetched on the first build.
 - **Drafts** — new posts are unpublished; `PUT {"published": true}` publishes.
   Public endpoints only return published posts. `excerpt` is the first 200
   characters of the body (Postgres `left()`, so never a split UTF-8
-  character); `published_at` is the post's creation time. Timestamps are
-  RFC 3339 strings in UTC.
+  character); `published_at` is stamped the first time a post is published
+  (`null` until then) and kept through later edits and unpublish/republish;
+  the list is newest first by it. Timestamps are RFC 3339 strings in UTC.
 - **Errors** are `{"error": "message"}` with a matching status code.
 
 A full round trip:

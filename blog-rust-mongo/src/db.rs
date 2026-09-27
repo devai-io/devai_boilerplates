@@ -42,7 +42,7 @@ pub async fn connect(url: &str, db_name: &str) -> mongodb::error::Result<Db> {
     db.posts
         .create_index(
             IndexModel::builder()
-                .keys(doc! { "published": 1, "created_at": -1 })
+                .keys(doc! { "published": 1, "published_at": -1 })
                 .build(),
         )
         .await?;

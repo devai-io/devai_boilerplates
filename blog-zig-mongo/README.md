@@ -44,8 +44,10 @@ a MongoDB, export the variables from `.env.example`, then `zig build run`.
 - **Drafts** — new posts are unpublished; `PUT {"published": true}` publishes.
   Public endpoints only return published posts. `excerpt` is the first 200
   characters (codepoints, never a split UTF-8 sequence) of the body;
-  `published_at` is the post's creation time. Timestamps are stored as BSON
-  dates and returned as RFC 3339 strings in UTC.
+  `published_at` is stamped the first time a post is published (`null` until
+  then) and kept through later edits and unpublish/republish; the list is
+  newest first by it. Timestamps are stored as BSON dates and returned as
+  RFC 3339 strings in UTC.
 - **Ids** are MongoDB ObjectIds as 24-character hex strings.
 - **Errors** are `{"error": "message"}` with a matching status code.
 

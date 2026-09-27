@@ -14,14 +14,15 @@ import (
 
 // ObjectIDs marshal to their hex form in JSON, so ids appear as strings.
 type post struct {
-	ID        bson.ObjectID `bson:"_id,omitempty" json:"id"`
-	Title     string        `bson:"title" json:"title"`
-	Slug      string        `bson:"slug" json:"slug"`
-	Body      string        `bson:"body" json:"body"`
-	Published bool          `bson:"published" json:"published"`
-	AuthorID  bson.ObjectID `bson:"author_id" json:"author_id"`
-	CreatedAt time.Time     `bson:"created_at" json:"created_at"`
-	UpdatedAt time.Time     `bson:"updated_at" json:"updated_at"`
+	ID          bson.ObjectID `bson:"_id,omitempty" json:"id"`
+	Title       string        `bson:"title" json:"title"`
+	Slug        string        `bson:"slug" json:"slug"`
+	Body        string        `bson:"body" json:"body"`
+	Published   bool          `bson:"published" json:"published"`
+	PublishedAt *time.Time    `bson:"published_at" json:"published_at"` // nil until first published
+	AuthorID    bson.ObjectID `bson:"author_id" json:"author_id"`
+	CreatedAt   time.Time     `bson:"created_at" json:"created_at"`
+	UpdatedAt   time.Time     `bson:"updated_at" json:"updated_at"`
 }
 
 type postSummary struct {
@@ -29,12 +30,12 @@ type postSummary struct {
 	Title       string        `json:"title"`
 	Slug        string        `json:"slug"`
 	Excerpt     string        `json:"excerpt"`
-	PublishedAt time.Time     `json:"published_at"`
+	PublishedAt *time.Time    `json:"published_at"`
 }
 
 func (a *app) listPosts(w http.ResponseWriter, r *http.Request) {
 	cur, err := a.posts.Find(r.Context(), bson.M{"published": true},
-		options.Find().SetSort(bson.D{{Key: "created_at", Value: -1}}))
+		options.Find().SetSort(bson.D{{Key: "published_at", Value: -1}}))
 	if err != nil {
 		internalErr(w, err)
 		return
@@ -47,7 +48,7 @@ func (a *app) listPosts(w http.ResponseWriter, r *http.Request) {
 			internalErr(w, err)
 			return
 		}
-		out = append(out, postSummary{p.ID, p.Title, p.Slug, excerpt(p.Body), p.CreatedAt})
+		out = append(out, postSummary{p.ID, p.Title, p.Slug, excerpt(p.Body), p.PublishedAt})
 	}
 	if err := cur.Err(); err != nil {
 		internalErr(w, err)
@@ -158,16 +159,21 @@ func (a *app) updatePost(w http.ResponseWriter, r *http.Request) {
 	if in.Published != nil {
 		p.Published = *in.Published
 	}
-	p.UpdatedAt = mongoNow()
+	now := mongoNow()
+	p.UpdatedAt = now
+	if p.Published && p.PublishedAt == nil { // stamped on first publish, then kept
+		p.PublishedAt = &now
+	}
 
 	update := func(slug string) error {
 		p.Slug = slug
 		_, err := a.posts.UpdateByID(r.Context(), p.ID, bson.M{"$set": bson.M{
-			"title":      p.Title,
-			"slug":       slug,
-			"body":       p.Body,
-			"published":  p.Published,
-			"updated_at": p.UpdatedAt,
+			"title":        p.Title,
+			"slug":         slug,
+			"body":         p.Body,
+			"published":    p.Published,
+			"published_at": p.PublishedAt,
+			"updated_at":   p.UpdatedAt,
 		}})
 		return err
 	}

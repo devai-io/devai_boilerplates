@@ -19,6 +19,7 @@ pub const Post = struct {
     slug: []const u8,
     body: []const u8,
     published: bool,
+    published_at: ?[]const u8, // null until first published
     author_id: i64,
     created_at: []const u8,
     updated_at: []const u8,
@@ -29,7 +30,7 @@ pub const PostSummary = struct {
     title: []const u8,
     slug: []const u8,
     excerpt: []const u8,
-    published_at: []const u8,
+    published_at: ?[]const u8,
 };
 
 fn rfc3339(comptime column: []const u8) []const u8 {
@@ -37,10 +38,10 @@ fn rfc3339(comptime column: []const u8) []const u8 {
 }
 
 const post_columns = "id, title, slug, body, published, author_id, " ++
-    rfc3339("created_at") ++ ", " ++ rfc3339("updated_at");
+    rfc3339("created_at") ++ ", " ++ rfc3339("updated_at") ++ ", " ++ rfc3339("published_at");
 
 // left() counts characters, not bytes, so the excerpt never splits a UTF-8 sequence.
-const summary_columns = "id, title, slug, left(body, 200), " ++ rfc3339("created_at");
+const summary_columns = "id, title, slug, left(body, 200), " ++ rfc3339("published_at");
 
 pub const Db = struct {
     pool: *pg.Pool,
@@ -136,7 +137,9 @@ pub const Db = struct {
             const slug = try numberedSlug(arena, base_slug, n);
             const post = self.postRow(
                 arena,
+                // published_at is stamped the first time the post is published, then kept.
                 "update posts set title = $2, slug = $3, body = $4, published = $5, " ++
+                    "published_at = coalesce(published_at, case when $5 then now() end), " ++
                     "updated_at = now() where id = $1 returning " ++ post_columns,
                 .{ id, title, slug, body, published },
             ) catch |err| {
@@ -151,7 +154,7 @@ pub const Db = struct {
         var conn = try self.pool.acquire();
         defer conn.release();
         var result = conn.query(
-            "select " ++ summary_columns ++ " from posts where published order by created_at desc",
+            "select " ++ summary_columns ++ " from posts where published order by published_at desc",
             .{},
         ) catch |err| return pgError(conn, err);
         defer result.deinit();
@@ -163,7 +166,7 @@ pub const Db = struct {
                 .title = try arena.dupe(u8, try row.get([]const u8, 1)),
                 .slug = try arena.dupe(u8, try row.get([]const u8, 2)),
                 .excerpt = try arena.dupe(u8, try row.get([]const u8, 3)),
-                .published_at = try arena.dupe(u8, try row.get([]const u8, 4)),
+                .published_at = try dupeOptional(arena, try row.get(?[]const u8, 4)),
             });
         }
         return out.items;
@@ -206,9 +209,14 @@ pub const Db = struct {
             .author_id = try row.get(i64, 5),
             .created_at = try arena.dupe(u8, try row.get([]const u8, 6)),
             .updated_at = try arena.dupe(u8, try row.get([]const u8, 7)),
+            .published_at = try dupeOptional(arena, try row.get(?[]const u8, 8)),
         };
     }
 };
+
+fn dupeOptional(arena: Allocator, value: ?[]const u8) !?[]const u8 {
+    return if (value) |v| try arena.dupe(u8, v) else null;
+}
 
 /// `base`, then `base-2`, `base-3`, ... for retries after a slug collision.
 fn numberedSlug(arena: Allocator, base: []const u8, n: usize) ![]const u8 {

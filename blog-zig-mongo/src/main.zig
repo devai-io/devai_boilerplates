@@ -90,15 +90,20 @@ fn handle(app: *App, arena: Allocator, req: *http.Server.Request) !void {
     if (method.requestHasBody() and req.head.transfer_encoding == .none and req.head.content_length == null)
         req.head.content_length = 0;
 
-    if (std.mem.eql(u8, path, "/health") and method == .GET) {
+    if (std.mem.eql(u8, path, "/health")) {
+        if (method != .GET) return error.MethodNotAllowed;
         return req.respond("ok", .{
             .extra_headers = &.{.{ .name = "content-type", .value = "text/plain" }},
         });
     }
-    if (std.mem.eql(u8, path, "/auth/register") and method == .POST)
+    if (std.mem.eql(u8, path, "/auth/register")) {
+        if (method != .POST) return error.MethodNotAllowed;
         return auth.register(app, arena, req);
-    if (std.mem.eql(u8, path, "/auth/login") and method == .POST)
+    }
+    if (std.mem.eql(u8, path, "/auth/login")) {
+        if (method != .POST) return error.MethodNotAllowed;
         return auth.login(app, arena, req);
+    }
 
     if (std.mem.eql(u8, path, "/posts")) {
         switch (method) {

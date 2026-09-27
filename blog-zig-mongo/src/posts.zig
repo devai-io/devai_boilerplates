@@ -12,7 +12,7 @@ const PostSummary = struct {
     title: []const u8,
     slug: []const u8,
     excerpt: []const u8,
-    published_at: []const u8,
+    published_at: ?[]const u8,
 };
 
 pub fn list(app: *App, arena: Allocator, req: *http.Server.Request) !void {
@@ -24,7 +24,7 @@ pub fn list(app: *App, arena: Allocator, req: *http.Server.Request) !void {
             .title = post.title,
             .slug = post.slug,
             .excerpt = excerpt(post.body),
-            .published_at = post.created_at,
+            .published_at = post.published_at,
         };
     }
     try web.sendJson(req, .ok, summaries, arena);

@@ -1,5 +1,4 @@
 import re
-import secrets
 from datetime import datetime, timezone
 from typing import Annotated
 
@@ -40,13 +39,13 @@ def now() -> datetime:
 
 
 async def with_unique_slug(title: str, write):
-    """Run write(slug); while the slug is taken, retry with a random suffix."""
-    base = slug = slugify(title)
-    for _ in range(3):
+    """Run write(slug) with the title's slug, then slug-2, slug-3, ... while it is taken."""
+    base = slugify(title)
+    for n in range(1, 51):
         try:
-            return await write(slug)
+            return await write(base if n == 1 else f"{base}-{n}")
         except DuplicateKeyError:
-            slug = f"{base}-{secrets.token_hex(3)}"
+            pass
     raise HTTPException(409, "could not generate a unique slug")
 
 
@@ -73,14 +72,14 @@ async def owned_post(db: AsyncDatabase, post_id: str, user_id: str) -> dict:
 
 @router.get("")
 async def list_posts(request: Request) -> list[dict]:
-    cursor = request.app.state.db.posts.find({"published": True}).sort("created_at", -1)
+    cursor = request.app.state.db.posts.find({"published": True}).sort("published_at", -1)
     return [
         {
             "id": str(doc["_id"]),
             "title": doc["title"],
             "slug": doc["slug"],
             "excerpt": doc["body"][:200],
-            "published_at": doc["created_at"],
+            "published_at": doc.get("published_at"),
         }
         async for doc in cursor
     ]
@@ -101,6 +100,7 @@ async def create_post(post: PostCreate, request: Request, user_id: str = Depends
         "title": post.title,
         "body": post.body,
         "published": False,
+        "published_at": None,
         "author_id": user_id,
         "created_at": created,
         "updated_at": created,
@@ -121,6 +121,8 @@ async def update_post(
     db = request.app.state.db
     current = await owned_post(db, post_id, user_id)
     changes = patch.model_dump(exclude_none=True) | {"updated_at": now()}
+    if changes.get("published") and current.get("published_at") is None:
+        changes["published_at"] = changes["updated_at"]  # stamped on first publish, then kept
 
     async def save(slug: str) -> dict:
         return await db.posts.find_one_and_update(

@@ -41,7 +41,9 @@ Without Docker: point `MONGO_URL` at any MongoDB, set the variables from
   duplicate title gets `-2`, `-3`, … Retitling a post regenerates its slug.
 - **Drafts** — new posts are unpublished; `PUT {"published": true}` publishes.
   Public endpoints only return published posts. `excerpt` is the first 200
-  characters of the body; `published_at` is the post's creation time.
+  characters of the body; `published_at` is stamped the first time a post is
+  published (`null` until then) and kept through later edits and
+  unpublish/republish; the list is newest first by it.
 - **Errors** are `{"error": "message"}` with a matching status code.
 
 A full round trip:

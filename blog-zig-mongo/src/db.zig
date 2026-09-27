@@ -26,6 +26,7 @@ pub const Post = struct {
     slug: []const u8,
     body: []const u8,
     published: bool,
+    published_at: ?[]const u8, // null until first published
     author_id: []const u8,
     created_at: []const u8, // RFC 3339, UTC
     updated_at: []const u8,
@@ -70,7 +71,7 @@ pub const Db = struct {
         try self.command(
             \\{ "createIndexes": "posts", "indexes": [
             \\  { "key": { "slug": 1 }, "name": "slug_unique", "unique": true },
-            \\  { "key": { "published": 1, "created_at": -1 }, "name": "published_recent" } ] }
+            \\  { "key": { "published": 1, "published_at": -1 }, "name": "published_at_recent" } ] }
         );
     }
 
@@ -171,6 +172,7 @@ pub const Db = struct {
             appendStr(doc, "slug", slug);
             appendStr(doc, "body", body);
             _ = c.bson_append_bool(doc, "published", -1, false);
+            _ = c.bson_append_null(doc, "published_at", -1);
             _ = c.bson_append_oid(doc, "author_id", -1, &author);
             _ = c.bson_append_date_time(doc, "created_at", -1, now);
             _ = c.bson_append_date_time(doc, "updated_at", -1, now);
@@ -186,6 +188,7 @@ pub const Db = struct {
                 .slug = slug,
                 .body = body,
                 .published = false,
+                .published_at = null,
                 .author_id = author_id,
                 .created_at = try rfc3339(arena, now),
                 .updated_at = try rfc3339(arena, now),
@@ -194,12 +197,13 @@ pub const Db = struct {
     }
 
     /// Saves the post's title, body and published flag. Its slug gets `-2`,
-    /// `-3`, ... appended while it collides; `slug` and `updated_at` are
-    /// updated in place.
+    /// `-3`, ... appended while it collides; `slug`, `updated_at` and, on the
+    /// first publish, `published_at` are updated in place.
     pub fn updatePost(self: *Db, arena: Allocator, post: *Post) !void {
         var oid: c.bson_oid_t = undefined;
         try parseOid(&oid, post.id);
         const now = self.nowMillis();
+        const first_publish = post.published and post.published_at == null;
 
         const h = try self.collection("posts");
         defer h.deinit();
@@ -220,6 +224,7 @@ pub const Db = struct {
             appendStr(&set, "slug", slug);
             appendStr(&set, "body", post.body);
             _ = c.bson_append_bool(&set, "published", -1, post.published);
+            if (first_publish) _ = c.bson_append_date_time(&set, "published_at", -1, now);
             _ = c.bson_append_date_time(&set, "updated_at", -1, now);
             _ = c.bson_append_document_end(update, &set);
 
@@ -230,6 +235,7 @@ pub const Db = struct {
             }
             post.slug = slug;
             post.updated_at = try rfc3339(arena, now);
+            if (first_publish) post.published_at = post.updated_at;
             return;
         }
     }
@@ -242,7 +248,7 @@ pub const Db = struct {
         defer c.bson_destroy(filter);
         _ = c.bson_append_bool(filter, "published", -1, true);
         var berr: c.bson_error_t = undefined;
-        const opts = c.bson_new_from_json("{ \"sort\": { \"created_at\": -1 } }", -1, &berr) orelse
+        const opts = c.bson_new_from_json("{ \"sort\": { \"published_at\": -1 } }", -1, &berr) orelse
             return error.OutOfMemory;
         defer c.bson_destroy(opts);
 
@@ -338,6 +344,7 @@ fn parsePost(arena: Allocator, doc: *const c.bson_t) !Post {
         .slug = try getStr(arena, doc, "slug"),
         .body = try getStr(arena, doc, "body"),
         .published = c.bson_iter_as_bool(&try find(doc, "published")),
+        .published_at = try getOptionalDate(arena, doc, "published_at"),
         .author_id = try getOid(arena, doc, "author_id"),
         .created_at = try rfc3339(arena, c.bson_iter_date_time(&try find(doc, "created_at"))),
         .updated_at = try rfc3339(arena, c.bson_iter_date_time(&try find(doc, "updated_at"))),
@@ -359,6 +366,13 @@ fn getStr(arena: Allocator, doc: *const c.bson_t, key: [:0]const u8) ![]const u8
     var len: u32 = 0;
     const ptr = c.bson_iter_utf8(&iter, &len) orelse return error.CorruptDocument;
     return arena.dupe(u8, ptr[0..len]);
+}
+
+/// null when the field is missing or not a date (a post never published).
+fn getOptionalDate(arena: Allocator, doc: *const c.bson_t, key: [:0]const u8) !?[]const u8 {
+    var iter: c.bson_iter_t = undefined;
+    if (!c.bson_iter_init_find(&iter, doc, key) or c.bson_iter_type(&iter) != c.BSON_TYPE_DATE_TIME) return null;
+    return try rfc3339(arena, c.bson_iter_date_time(&iter));
 }
 
 fn getOid(arena: Allocator, doc: *const c.bson_t, key: [:0]const u8) ![]const u8 {

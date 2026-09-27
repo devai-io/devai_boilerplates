@@ -12,36 +12,37 @@ import (
 )
 
 type post struct {
-	ID        int64     `json:"id"`
-	Title     string    `json:"title"`
-	Slug      string    `json:"slug"`
-	Body      string    `json:"body"`
-	Published bool      `json:"published"`
-	AuthorID  int64     `json:"author_id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Slug        string     `json:"slug"`
+	Body        string     `json:"body"`
+	Published   bool       `json:"published"`
+	PublishedAt *time.Time `json:"published_at"` // nil until first published
+	AuthorID    int64      `json:"author_id"`
+	CreatedAt   time.Time  `json:"created_at"`
+	UpdatedAt   time.Time  `json:"updated_at"`
 }
 
 type postSummary struct {
-	ID          int64     `json:"id"`
-	Title       string    `json:"title"`
-	Slug        string    `json:"slug"`
-	Excerpt     string    `json:"excerpt"`
-	PublishedAt time.Time `json:"published_at"`
+	ID          int64      `json:"id"`
+	Title       string     `json:"title"`
+	Slug        string     `json:"slug"`
+	Excerpt     string     `json:"excerpt"`
+	PublishedAt *time.Time `json:"published_at"`
 }
 
-const postCols = "id, title, slug, body, published, author_id, created_at, updated_at"
+const postCols = "id, title, slug, body, published, published_at, author_id, created_at, updated_at"
 
 func scanPost(row pgx.Row) (post, error) {
 	var p post
-	err := row.Scan(&p.ID, &p.Title, &p.Slug, &p.Body, &p.Published,
+	err := row.Scan(&p.ID, &p.Title, &p.Slug, &p.Body, &p.Published, &p.PublishedAt,
 		&p.AuthorID, &p.CreatedAt, &p.UpdatedAt)
 	return p, err
 }
 
 func (a *app) listPosts(w http.ResponseWriter, r *http.Request) {
 	rows, err := a.db.Query(r.Context(),
-		"SELECT id, title, slug, body, created_at FROM posts WHERE published ORDER BY created_at DESC")
+		"SELECT id, title, slug, body, published_at FROM posts WHERE published ORDER BY published_at DESC")
 	if err != nil {
 		internalErr(w, err)
 		return
@@ -50,11 +51,11 @@ func (a *app) listPosts(w http.ResponseWriter, r *http.Request) {
 	out := []postSummary{}
 	for rows.Next() {
 		var p post
-		if err := rows.Scan(&p.ID, &p.Title, &p.Slug, &p.Body, &p.CreatedAt); err != nil {
+		if err := rows.Scan(&p.ID, &p.Title, &p.Slug, &p.Body, &p.PublishedAt); err != nil {
 			internalErr(w, err)
 			return
 		}
-		out = append(out, postSummary{p.ID, p.Title, p.Slug, excerpt(p.Body), p.CreatedAt})
+		out = append(out, postSummary{p.ID, p.Title, p.Slug, excerpt(p.Body), p.PublishedAt})
 	}
 	if err := rows.Err(); err != nil {
 		internalErr(w, err)
@@ -162,9 +163,12 @@ func (a *app) updatePost(w http.ResponseWriter, r *http.Request) {
 		p.Published = *in.Published
 	}
 
+	// published_at is stamped the first time the post is published, then kept.
 	update := func(slug string) error {
 		np, err := scanPost(a.db.QueryRow(r.Context(),
-			"UPDATE posts SET title = $1, slug = $2, body = $3, published = $4, updated_at = now() WHERE id = $5 RETURNING "+postCols,
+			"UPDATE posts SET title = $1, slug = $2, body = $3, published = $4, "+
+				"published_at = coalesce(published_at, CASE WHEN $4 THEN now() END), updated_at = now() "+
+				"WHERE id = $5 RETURNING "+postCols,
 			p.Title, slug, p.Body, p.Published, id))
 		if err == nil {
 			p = np

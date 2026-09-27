@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"go.mongodb.org/mongo-driver/v2/mongo"
@@ -49,7 +50,7 @@ func main() {
 	mux.HandleFunc("PUT /posts/{id}", a.requireAuth(a.updatePost))
 	mux.HandleFunc("DELETE /posts/{id}", a.requireAuth(a.deletePost))
 
-	srv := &http.Server{Addr: ":" + port, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
+	srv := &http.Server{Addr: ":" + port, Handler: jsonErrors(mux), ReadHeaderTimeout: 5 * time.Second}
 	log.Printf("listening on :%s", port)
 	log.Fatal(srv.ListenAndServe())
 }
@@ -78,6 +79,27 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 func writeErr(w http.ResponseWriter, status int, msg string) {
 	writeJSON(w, status, map[string]string{"error": msg})
 }
+
+// jsonErrors swaps net/http's plain-text 404 (no route) and 405 (known path,
+// wrong method) for the API's JSON error body.
+func jsonErrors(mux *http.ServeMux) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, pattern := mux.Handler(r); pattern == "" {
+			w = statusAsJSON{w}
+		}
+		mux.ServeHTTP(w, r)
+	})
+}
+
+// statusAsJSON turns the status net/http writes into writeErr's body and
+// drops net/http's own text.
+type statusAsJSON struct{ http.ResponseWriter }
+
+func (w statusAsJSON) WriteHeader(code int) {
+	writeErr(w.ResponseWriter, code, strings.ToLower(http.StatusText(code)))
+}
+
+func (w statusAsJSON) Write(b []byte) (int, error) { return len(b), nil }
 
 // internalErr logs the cause and hides it from the client.
 func internalErr(w http.ResponseWriter, err error) {

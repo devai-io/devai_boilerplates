@@ -1,5 +1,4 @@
 import re
-import secrets
 from typing import Annotated
 
 import asyncpg
@@ -29,13 +28,13 @@ def slugify(title: str) -> str:
 
 
 async def with_unique_slug(title: str, write):
-    """Run write(slug); while the slug is taken, retry with a random suffix."""
-    base = slug = slugify(title)
-    for _ in range(3):
+    """Run write(slug) with the title's slug, then slug-2, slug-3, ... while it is taken."""
+    base = slugify(title)
+    for n in range(1, 51):
         try:
-            return await write(slug)
+            return await write(base if n == 1 else f"{base}-{n}")
         except asyncpg.UniqueViolationError:
-            slug = f"{base}-{secrets.token_hex(3)}"
+            pass
     raise HTTPException(409, "could not generate a unique slug")
 
 
@@ -51,8 +50,8 @@ async def owned_post(pool: asyncpg.Pool, post_id: int, user_id: int) -> dict:
 @router.get("")
 async def list_posts(request: Request) -> list[dict]:
     rows = await request.app.state.pool.fetch(
-        "SELECT id, title, slug, left(body, 200) AS excerpt, created_at AS published_at"
-        " FROM posts WHERE published ORDER BY created_at DESC"
+        "SELECT id, title, slug, left(body, 200) AS excerpt, published_at"
+        " FROM posts WHERE published ORDER BY published_at DESC"
     )
     return [dict(r) for r in rows]
 
@@ -89,9 +88,11 @@ async def update_post(
     current = await owned_post(pool, post_id, user_id)
     post = current | patch.model_dump(exclude_none=True)
 
+    # published_at is stamped the first time the post is published, then kept.
     async def save(slug: str):
         return await pool.fetchrow(
-            "UPDATE posts SET title = $2, slug = $3, body = $4, published = $5, updated_at = now()"
+            "UPDATE posts SET title = $2, slug = $3, body = $4, published = $5,"
+            " published_at = coalesce(published_at, CASE WHEN $5 THEN now() END), updated_at = now()"
             " WHERE id = $1 RETURNING *",
             post_id,
             post["title"],

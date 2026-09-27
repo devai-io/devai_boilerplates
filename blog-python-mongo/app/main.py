@@ -37,4 +37,4 @@ async def validation_error(_: Request, exc: RequestValidationError) -> JSONRespo
     first = exc.errors()[0]
     field = ".".join(str(part) for part in first["loc"] if part != "body")
     message = f"{field}: {first['msg']}" if field else first["msg"]
-    return JSONResponse({"error": message}, status_code=422)
+    return JSONResponse({"error": message}, status_code=400)

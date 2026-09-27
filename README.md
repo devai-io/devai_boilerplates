@@ -53,8 +53,8 @@ Beginner tutorials — fetch real data from the internet.
 | [`weather-now`](./weather-now) | Type a city, get the live weather — your first two-step API call. |
 | [`github-profile`](./github-profile) | Type a username, get their profile — your first taste of an API. |
 | [`random-quote`](./random-quote) | Load quotes from a data file and show a new one on demand. |
-| [`currency-converter`](./currency-converter) | Convert between currencies at today's real exchange rates. |
-| [`crypto-ticker`](./crypto-ticker) | Live coin prices that refresh themselves every few seconds. |
+| [`currency-converter`](./currency-converter) | Convert between currencies at the latest real exchange rates. |
+| [`crypto-ticker`](./crypto-ticker) | Live coin prices that refresh themselves every 30 seconds. |
 | [`dictionary-lookup`](./dictionary-lookup) | Look up any word and read its definitions — nested JSON, unpacked. |
 | [`country-explorer`](./country-explorer) | Search a country, see its flag, capital, population and languages. |
 | [`ip-lookup`](./ip-lookup) | See your own IP, city and network — the API reads your request. |
@@ -66,14 +66,14 @@ One API contract, eight backends — compare languages on identical ground.
 
 | Project | What it is |
 |---|---|
-| [`blog-go-postgres`](./blog-go-postgres) | A refined, minimalist blog API in Go on Postgres — auth to publishing in a dozen files. |
+| [`blog-go-postgres`](./blog-go-postgres) | A refined, minimalist blog API in Go on Postgres — auth to publishing in four source files. |
 | [`blog-go-mongo`](./blog-go-mongo) | The Go blog engine on MongoDB — same API, document storage, zero migrations. |
 | [`blog-rust-postgres`](./blog-rust-postgres) | The blog engine in Rust — axum handlers, sqlx queries, argon2 hashing. |
 | [`blog-rust-mongo`](./blog-rust-mongo) | Rust + MongoDB: the blog engine with documents instead of rows. |
 | [`blog-zig-postgres`](./blog-zig-postgres) | The blog engine in Zig — std.http, pg.zig, and a hand-rolled HS256. |
 | [`blog-zig-mongo`](./blog-zig-mongo) | Zig meets MongoDB through libmongoc — the systems-programming take on documents. |
 | [`blog-python-postgres`](./blog-python-postgres) | FastAPI + asyncpg: the blog engine with the shortest path from zero to endpoint. |
-| [`blog-python-mongo`](./blog-python-mongo) | FastAPI + motor: async documents end to end. |
+| [`blog-python-mongo`](./blog-python-mongo) | FastAPI + PyMongo's async client: async documents end to end. |
 
 ## Blog Frontends
 
@@ -103,7 +103,7 @@ Production-shaped API boilerplates.
 |---|---|
 | [`rust-crud-sql-api`](./rust-crud-sql-api) | A JWT-secured REST API in Rust: Warp handlers, sqlx, Postgres, role-based routes. |
 | [`rust-crud-nosql-api`](./rust-crud-nosql-api) | The same JWT-secured Rust API, backed by MongoDB instead of Postgres. |
-| [`rust-crud-actix-mongo-api`](./rust-crud-actix-mongo-api) | Actix-web 4 + MongoDB with JWT from cookie or Bearer, and structured logging. |
+| [`rust-crud-actix-mongo-api`](./rust-crud-actix-mongo-api) | Actix-web 4 + MongoDB with JWT from cookie or Bearer, and rotating refresh tokens. |
 
 ## Deploy & Infra
 

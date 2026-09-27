@@ -273,19 +273,33 @@ All implement exactly:
 GET    /health              -> 200 "ok"
 POST   /auth/register       {email, password} -> 201 {id, email}
 POST   /auth/login          {email, password} -> 200 {token}
-GET    /posts               -> 200 [published: {id,title,slug,excerpt,published_at}]
-GET    /posts/{slug}        -> 200 full post | 404
-POST   /posts        (auth) -> 201 create {title, body}
-PUT    /posts/{id}   (auth) -> 200 update {title?, body?, published?}
+GET    /posts               -> 200 [published: {id,title,slug,excerpt,published_at}], newest published_at first
+GET    /posts/{slug}        -> 200 full post | 404 (drafts too)
+POST   /posts        (auth) -> 201 full post, a draft; create {title, body}
+PUT    /posts/{id}   (auth) -> 200 full post; update {title?, body?, published?}
 DELETE /posts/{id}   (auth) -> 204
 ```
 
 - `posts`: id, title, slug (unique, from title), body (markdown), published
-  (default false), author_id, created_at, updated_at. `users`: id, email
-  (unique), password_hash, created_at. `excerpt` = first 200 chars, server-side.
+  (default false), published_at, author_id, created_at, updated_at — a "full
+  post" is all of them. `users`: id, email (unique), password_hash,
+  created_at. `excerpt` = first 200 chars, server-side.
+- Slug = the title lowercased, ASCII letters and digits kept, every other run
+  collapsed to one `-` (trimmed; `post` if empty). Taken → `<slug>-2`,
+  `<slug>-3`, … A changed title regenerates the slug the same way; an
+  unchanged title keeps it.
+- `published_at` = when the post was FIRST published: `null` while a draft,
+  set when `published` first becomes true, then never changed — edits and
+  unpublish/republish keep it. SQL: nullable `timestamptz`, added with
+  `ALTER TABLE posts ADD COLUMN IF NOT EXISTS`; Mongo: a date field.
+- Timestamps are RFC 3339 strings in UTC.
 - JWT HS256 signed with `AUTH_SECRET`, `sub` = user id, 7d expiry, sent as
-  `Authorization: Bearer`. Passwords: bcrypt or argon2. Errors:
-  `{"error": "message"}` with correct status codes.
+  `Authorization: Bearer`. Passwords: bcrypt or argon2.
+- Every error is `{"error": "message"}`: 400 malformed JSON, missing or
+  wrong-typed field, blank title, password under 8 chars; 401 missing,
+  invalid or expired token, or wrong login; 403 PUT/DELETE on another user's
+  post; 404 unknown route, slug or post id (a malformed id included); 405
+  known path, wrong method; 409 email already registered.
 - SQL backends ship `schema.sql`, applied on startup; Mongo backends ensure
   indexes on startup.
 - Each backend keeps local auth swappable and ships `extras/auth-clerk/` and
@@ -295,7 +309,8 @@ Stacks: **Go** stdlib `net/http` + `pgx/v5` / `mongo-driver`, bcrypt,
 `golang-jwt/v5`. **Rust** axum + tokio, `sqlx` (runtime queries) / `mongodb`,
 argon2, `jsonwebtoken`. **Zig** `std.http.Server`, `pg.zig` / libmongoc via
 `@cImport`, `std.crypto` argon2 + hand-rolled HS256. **Python** FastAPI +
-`asyncpg` / `motor`, `argon2-cffi`, `pyjwt`, uv-friendly `pyproject.toml`.
+`asyncpg` / PyMongo's async API, `argon2-cffi`, `pyjwt`, uv-friendly
+`pyproject.toml`.
 
 Frontends (`blog-react`, `blog-angular`, `blog-dart`, `blog-flutter`) consume
 this contract; base URL from env (`VITE_API_URL` / `NG_APP_API_URL` /

@@ -18,6 +18,8 @@ pub struct Post {
     pub slug: String,
     pub body: String,
     pub published: bool,
+    /// None until the post is first published.
+    pub published_at: Option<DateTime>,
     pub author_id: ObjectId,
     pub created_at: DateTime,
     pub updated_at: DateTime,
@@ -41,7 +43,7 @@ pub async fn list(State(state): State<AppState>) -> Result<Json<Value>, ApiError
         .db
         .posts
         .find(doc! { "published": true })
-        .sort(doc! { "created_at": -1 })
+        .sort(doc! { "published_at": -1 })
         .await?;
 
     let mut posts = Vec::new();
@@ -53,7 +55,7 @@ pub async fn list(State(state): State<AppState>) -> Result<Json<Value>, ApiError
             "slug": post.slug,
             // chars(), not bytes, so the excerpt never splits a UTF-8 sequence.
             "excerpt": post.body.chars().take(200).collect::<String>(),
-            "published_at": rfc3339(post.created_at),
+            "published_at": post.published_at.map(rfc3339),
         }));
     }
     Ok(Json(Value::Array(posts)))
@@ -92,6 +94,7 @@ pub async fn create(
         slug: String::new(),
         body: input.body,
         published: false,
+        published_at: None,
         author_id,
         created_at: now,
         updated_at: now,
@@ -130,6 +133,10 @@ pub async fn update(
         post.published = published;
     }
     post.updated_at = DateTime::now();
+    if post.published && post.published_at.is_none() {
+        // Stamped on first publish, then kept.
+        post.published_at = Some(post.updated_at);
+    }
 
     save(&state, &mut post, &slug).await?;
     Ok(Json(post_json(&post)))
@@ -169,6 +176,7 @@ fn post_json(post: &Post) -> Value {
         "slug": post.slug,
         "body": post.body,
         "published": post.published,
+        "published_at": post.published_at.map(rfc3339),
         "author_id": post.author_id.to_hex(),
         "created_at": rfc3339(post.created_at),
         "updated_at": rfc3339(post.updated_at),

@@ -7,5 +7,5 @@ async def connect(mongo_url: str, db_name: str) -> tuple[AsyncMongoClient, Async
     db = client[db_name]
     await db.users.create_index("email", unique=True)
     await db.posts.create_index("slug", unique=True)
-    await db.posts.create_index([("published", 1), ("created_at", -1)])
+    await db.posts.create_index([("published", 1), ("published_at", -1)])
     return client, db

@@ -51,9 +51,9 @@ def _password_matches(password_hash: str, password: str) -> bool:
 async def register(creds: Credentials, request: Request) -> dict:
     email = creds.email.strip().lower()
     if not _EMAIL.match(email):
-        raise HTTPException(422, "invalid email address")
+        raise HTTPException(400, "invalid email address")
     if len(creds.password) < 8:
-        raise HTTPException(422, "password must be at least 8 characters")
+        raise HTTPException(400, "password must be at least 8 characters")
     # argon2 is deliberately slow; hash off the event loop so other requests keep flowing.
     password_hash = await run_in_threadpool(_hasher.hash, creds.password)
     try:

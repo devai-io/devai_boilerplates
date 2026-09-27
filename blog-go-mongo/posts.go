@@ -7,30 +7,29 @@ import (
 	"strings"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 // ObjectIDs marshal to their hex form in JSON, so ids appear as strings.
 type post struct {
-	ID        primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Title     string             `bson:"title" json:"title"`
-	Slug      string             `bson:"slug" json:"slug"`
-	Body      string             `bson:"body" json:"body"`
-	Published bool               `bson:"published" json:"published"`
-	AuthorID  primitive.ObjectID `bson:"author_id" json:"author_id"`
-	CreatedAt time.Time          `bson:"created_at" json:"created_at"`
-	UpdatedAt time.Time          `bson:"updated_at" json:"updated_at"`
+	ID        bson.ObjectID `bson:"_id,omitempty" json:"id"`
+	Title     string        `bson:"title" json:"title"`
+	Slug      string        `bson:"slug" json:"slug"`
+	Body      string        `bson:"body" json:"body"`
+	Published bool          `bson:"published" json:"published"`
+	AuthorID  bson.ObjectID `bson:"author_id" json:"author_id"`
+	CreatedAt time.Time     `bson:"created_at" json:"created_at"`
+	UpdatedAt time.Time     `bson:"updated_at" json:"updated_at"`
 }
 
 type postSummary struct {
-	ID          primitive.ObjectID `json:"id"`
-	Title       string             `json:"title"`
-	Slug        string             `json:"slug"`
-	Excerpt     string             `json:"excerpt"`
-	PublishedAt time.Time          `json:"published_at"`
+	ID          bson.ObjectID `json:"id"`
+	Title       string        `json:"title"`
+	Slug        string        `json:"slug"`
+	Excerpt     string        `json:"excerpt"`
+	PublishedAt time.Time     `json:"published_at"`
 }
 
 func (a *app) listPosts(w http.ResponseWriter, r *http.Request) {
@@ -73,7 +72,7 @@ func (a *app) getPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) createPost(w http.ResponseWriter, r *http.Request) {
-	uid, err := primitive.ObjectIDFromHex(userID(r))
+	uid, err := bson.ObjectIDFromHex(userID(r))
 	if err != nil {
 		writeErr(w, http.StatusUnauthorized, "invalid token subject")
 		return
@@ -91,17 +90,17 @@ func (a *app) createPost(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, "title required")
 		return
 	}
-	now := time.Now().UTC()
+	now := mongoNow()
 	p := post{Title: in.Title, Body: in.Body, AuthorID: uid, CreatedAt: now, UpdatedAt: now}
-	err = withUniqueSlug(slugify(in.Title), func(slug string) error {
+	insert := func(slug string) error {
 		p.Slug = slug
 		res, err := a.posts.InsertOne(r.Context(), p)
 		if err == nil {
-			p.ID = res.InsertedID.(primitive.ObjectID)
+			p.ID = res.InsertedID.(bson.ObjectID)
 		}
 		return err
-	})
-	if err != nil {
+	}
+	if err := withUniqueSlug(slugify(in.Title), insert); err != nil {
 		internalErr(w, err)
 		return
 	}
@@ -109,12 +108,12 @@ func (a *app) createPost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) updatePost(w http.ResponseWriter, r *http.Request) {
-	uid, err := primitive.ObjectIDFromHex(userID(r))
+	uid, err := bson.ObjectIDFromHex(userID(r))
 	if err != nil {
 		writeErr(w, http.StatusUnauthorized, "invalid token subject")
 		return
 	}
-	id, err := primitive.ObjectIDFromHex(r.PathValue("id"))
+	id, err := bson.ObjectIDFromHex(r.PathValue("id"))
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "post not found")
 		return
@@ -159,7 +158,7 @@ func (a *app) updatePost(w http.ResponseWriter, r *http.Request) {
 	if in.Published != nil {
 		p.Published = *in.Published
 	}
-	p.UpdatedAt = time.Now().UTC()
+	p.UpdatedAt = mongoNow()
 
 	update := func(slug string) error {
 		p.Slug = slug
@@ -185,12 +184,12 @@ func (a *app) updatePost(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a *app) deletePost(w http.ResponseWriter, r *http.Request) {
-	uid, err := primitive.ObjectIDFromHex(userID(r))
+	uid, err := bson.ObjectIDFromHex(userID(r))
 	if err != nil {
 		writeErr(w, http.StatusUnauthorized, "invalid token subject")
 		return
 	}
-	id, err := primitive.ObjectIDFromHex(r.PathValue("id"))
+	id, err := bson.ObjectIDFromHex(r.PathValue("id"))
 	if err != nil {
 		writeErr(w, http.StatusNotFound, "post not found")
 		return
@@ -258,4 +257,10 @@ func excerpt(body string) string {
 		return body
 	}
 	return string(runes[:200])
+}
+
+// mongoNow is the current time at the millisecond precision MongoDB stores,
+// so a response matches what later reads return.
+func mongoNow() time.Time {
+	return time.Now().UTC().Truncate(time.Millisecond)
 }

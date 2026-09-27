@@ -1,2 +1,4 @@
 result
+data/
+.env
 .DS_Store

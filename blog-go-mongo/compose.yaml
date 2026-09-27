@@ -13,7 +13,7 @@ services:
         condition: service_healthy
 
   db:
-    image: mongo:7
+    image: mongo:8
     volumes:
       - ./data/mongo:/data/db
     healthcheck:

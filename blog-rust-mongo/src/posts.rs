@@ -1,15 +1,14 @@
-use argon2::password_hash::rand_core::{OsRng, RngCore};
 use axum::extract::{Path, State};
 use axum::http::StatusCode;
 use mongodb::bson::oid::ObjectId;
-use mongodb::bson::{doc, DateTime};
+use mongodb::bson::{DateTime, doc};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
+use crate::AppState;
 use crate::auth::AuthUser;
 use crate::db::is_duplicate_key;
 use crate::error::{ApiError, Json};
-use crate::AppState;
 
 #[derive(Serialize, Deserialize)]
 pub struct Post {
@@ -52,6 +51,7 @@ pub async fn list(State(state): State<AppState>) -> Result<Json<Value>, ApiError
             "id": post.id.to_hex(),
             "title": post.title,
             "slug": post.slug,
+            // chars(), not bytes, so the excerpt never splits a UTF-8 sequence.
             "excerpt": post.body.chars().take(200).collect::<String>(),
             "published_at": rfc3339(post.created_at),
         }));
@@ -77,111 +77,88 @@ pub async fn create(
     AuthUser(author_id): AuthUser,
     Json(input): Json<CreatePost>,
 ) -> Result<(StatusCode, Json<Value>), ApiError> {
-    let title = input.title.trim().to_string();
+    let title = input.title.trim();
     if title.is_empty() || input.body.trim().is_empty() {
-        return Err(ApiError::new(StatusCode::BAD_REQUEST, "title and body are required"));
+        return Err(ApiError::new(
+            StatusCode::BAD_REQUEST,
+            "title and body are required",
+        ));
     }
 
-    let mut slug = slugify(&title);
     let now = DateTime::now();
-    for retried in [false, true] {
-        let post = Post {
-            id: ObjectId::new(),
-            title: title.clone(),
-            slug: slug.clone(),
-            body: input.body.clone(),
-            published: false,
-            author_id,
-            created_at: now,
-            updated_at: now,
-        };
-        match state.db.posts.insert_one(&post).await {
-            Ok(_) => return Ok((StatusCode::CREATED, Json(post_json(&post)))),
-            // Slug already taken: retry once with a random suffix.
-            Err(err) if is_duplicate_key(&err) && !retried => slug = suffixed(&slug),
-            Err(err) => return Err(err.into()),
-        }
-    }
-    unreachable!("second insert attempt always returns");
+    let mut post = Post {
+        id: ObjectId::new(),
+        title: title.to_string(),
+        slug: String::new(),
+        body: input.body,
+        published: false,
+        author_id,
+        created_at: now,
+        updated_at: now,
+    };
+    save(&state, &mut post, &slugify(title)).await?;
+    Ok((StatusCode::CREATED, Json(post_json(&post))))
 }
 
 pub async fn update(
     State(state): State<AppState>,
-    AuthUser(author_id): AuthUser,
+    AuthUser(user_id): AuthUser,
     Path(id): Path<String>,
     Json(input): Json<UpdatePost>,
 ) -> Result<Json<Value>, ApiError> {
-    let id = parse_post_id(&id)?;
-    let post = state
-        .db
-        .posts
-        .find_one(doc! { "_id": id, "author_id": author_id })
-        .await?
-        .ok_or_else(post_not_found)?;
+    let mut post = find_own_post(&state, &id, user_id).await?;
 
-    let title = match input.title.as_deref().map(str::trim) {
-        Some("") => return Err(ApiError::new(StatusCode::BAD_REQUEST, "title cannot be empty")),
-        Some(title) => title.to_string(),
-        None => post.title.clone(),
-    };
-    // The slug follows the title; an unchanged title keeps the slug stable.
-    let mut slug = if title == post.title { post.slug.clone() } else { slugify(&title) };
-    let body = input.body.unwrap_or(post.body);
-    let published = input.published.unwrap_or(post.published);
-    let now = DateTime::now();
-
-    for retried in [false, true] {
-        let result = state
-            .db
-            .posts
-            .update_one(
-                doc! { "_id": id },
-                doc! { "$set": {
-                    "title": title.as_str(),
-                    "slug": slug.as_str(),
-                    "body": body.as_str(),
-                    "published": published,
-                    "updated_at": now,
-                }},
-            )
-            .await;
-
-        match result {
-            Ok(_) => {
-                let updated = Post {
-                    id: post.id,
-                    title,
-                    slug,
-                    body,
-                    published,
-                    author_id: post.author_id,
-                    created_at: post.created_at,
-                    updated_at: now,
-                };
-                return Ok(Json(post_json(&updated)));
-            }
-            Err(err) if is_duplicate_key(&err) && !retried => slug = suffixed(&slug),
-            Err(err) => return Err(err.into()),
+    // The slug follows the title; an unchanged title keeps its slug.
+    let mut slug = post.slug.clone();
+    if let Some(title) = input.title {
+        let title = title.trim();
+        if title.is_empty() {
+            return Err(ApiError::new(
+                StatusCode::BAD_REQUEST,
+                "title cannot be empty",
+            ));
+        }
+        if title != post.title {
+            post.title = title.to_string();
+            slug = slugify(title);
         }
     }
-    unreachable!("second update attempt always returns");
+    if let Some(body) = input.body {
+        post.body = body;
+    }
+    if let Some(published) = input.published {
+        post.published = published;
+    }
+    post.updated_at = DateTime::now();
+
+    save(&state, &mut post, &slug).await?;
+    Ok(Json(post_json(&post)))
 }
 
 pub async fn delete(
     State(state): State<AppState>,
-    AuthUser(author_id): AuthUser,
+    AuthUser(user_id): AuthUser,
     Path(id): Path<String>,
 ) -> Result<StatusCode, ApiError> {
-    let id = parse_post_id(&id)?;
-    let result = state
+    let post = find_own_post(&state, &id, user_id).await?;
+    state.db.posts.delete_one(doc! { "_id": post.id }).await?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// 404 if the post doesn't exist (a malformed id can't name one), 403 if
+/// it belongs to someone else.
+async fn find_own_post(state: &AppState, id: &str, user_id: ObjectId) -> Result<Post, ApiError> {
+    let id = ObjectId::parse_str(id).map_err(|_| post_not_found())?;
+    let post = state
         .db
         .posts
-        .delete_one(doc! { "_id": id, "author_id": author_id })
-        .await?;
-    if result.deleted_count == 0 {
-        return Err(post_not_found());
+        .find_one(doc! { "_id": id })
+        .await?
+        .ok_or_else(post_not_found)?;
+    if post.author_id != user_id {
+        return Err(ApiError::new(StatusCode::FORBIDDEN, "not your post"));
     }
-    Ok(StatusCode::NO_CONTENT)
+    Ok(post)
 }
 
 /// API shape of a full post (BSON types mapped to plain JSON).
@@ -206,11 +183,32 @@ fn post_not_found() -> ApiError {
     ApiError::new(StatusCode::NOT_FOUND, "post not found")
 }
 
-fn parse_post_id(raw: &str) -> Result<ObjectId, ApiError> {
-    // A malformed id cannot match any post, so it reads as a 404 too.
-    ObjectId::parse_str(raw).map_err(|_| post_not_found())
+/// Upserts `post` (so it both creates and updates), trying `base`, `base-2`,
+/// `base-3`, ... as its slug until the unique index accepts one (capped, then
+/// the error escapes).
+async fn save(state: &AppState, post: &mut Post, base: &str) -> Result<(), ApiError> {
+    let mut n = 1;
+    loop {
+        post.slug = if n == 1 {
+            base.to_string()
+        } else {
+            format!("{base}-{n}")
+        };
+        let result = state
+            .db
+            .posts
+            .replace_one(doc! { "_id": post.id }, &*post)
+            .upsert(true)
+            .await;
+        match result {
+            Err(err) if is_duplicate_key(&err) && n < 50 => n += 1,
+            result => return result.map(|_| ()).map_err(ApiError::from),
+        }
+    }
 }
 
+/// Lowercases the title and collapses every non-alphanumeric run into a
+/// single dash: "Hello, World!" -> "hello-world".
 fn slugify(title: &str) -> String {
     let mut slug = String::with_capacity(title.len());
     let mut pending_dash = false;
@@ -230,9 +228,4 @@ fn slugify(title: &str) -> String {
     } else {
         slug
     }
-}
-
-fn suffixed(slug: &str) -> String {
-    // OsRng ships with argon2's password-hash stack; no extra dependency.
-    format!("{slug}-{:08x}", OsRng.next_u32())
 }

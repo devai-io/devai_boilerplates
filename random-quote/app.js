@@ -1,26 +1,21 @@
-// Random Quote Machine — show a quote, click the button for another.
-// Concept: fetch() a LOCAL data file (quotes.json) and pick a random item.
-// This is the EXACT same pattern you'd use for a live API on the internet —
-// only the URL is different. Swap "quotes.json" for a real endpoint and the
-// rest of the code barely changes.
-
 const quoteEl = document.getElementById("quote");
 const authorEl = document.getElementById("author");
 const button = document.getElementById("new");
 const statusEl = document.getElementById("status");
 
-let quotes = []; // filled in once the file loads
-let lastIndex = -1; // remember the last pick so we don't repeat it immediately
+let quotes = [];
+let lastIndex = -1;
 
+// fetch() a LOCAL data file — the exact pattern you'd use for a live API. Swap
+// "quotes.json" for a real URL and the rest of this function stays the same.
 async function loadQuotes() {
   statusEl.textContent = "Loading…";
 
   try {
-    // fetch() works on your own files too. "quotes.json" sits next to this page.
     const res = await fetch("quotes.json");
     if (!res.ok) throw new Error(`Could not load quotes (${res.status})`);
 
-    quotes = await res.json(); // an array of { text, author } objects
+    quotes = await res.json(); // an array of { text, author }
     if (!Array.isArray(quotes) || quotes.length === 0) {
       statusEl.textContent = "No quotes found.";
       return;
@@ -29,33 +24,27 @@ async function loadQuotes() {
     statusEl.textContent = "";
     showRandom();
   } catch (err) {
-    // The most common cause here is opening the file via file:// — some browsers
-    // block reading local files that way. The README shows the one-line fix.
-    statusEl.textContent =
-      "Couldn't load the quotes. Try running a local server (see the README).";
+    // Usually this means the page was opened straight from disk (file://),
+    // where browsers refuse to fetch() other files. Serve the folder instead.
+    statusEl.textContent = "Couldn't load the quotes. Serve this folder with a local server (see the README).";
     console.error(err);
   }
 }
 
-// Pick a random quote and put it on the page.
 function showRandom() {
-  if (quotes.length === 0) return; // nothing loaded yet
+  if (quotes.length === 0) return;
 
-  // Math.random() gives 0–0.999…; multiply by the length to get a valid index.
+  // Math.random() is 0 to 0.999…; times the length, rounded down, is a valid index.
   let index = Math.floor(Math.random() * quotes.length);
-
-  // If we happened to pick the same one, roll again (only matters with 2+ quotes).
   while (quotes.length > 1 && index === lastIndex) {
-    index = Math.floor(Math.random() * quotes.length);
+    index = Math.floor(Math.random() * quotes.length); // never the same one twice in a row
   }
   lastIndex = index;
 
-  const quote = quotes[index];
-  quoteEl.textContent = quote.text;
-  authorEl.textContent = "— " + quote.author;
+  quoteEl.textContent = quotes[index].text;
+  authorEl.textContent = "— " + quotes[index].author;
 }
 
 button.addEventListener("click", showRandom);
 
-// Load the file once when the page opens.
 loadQuotes();

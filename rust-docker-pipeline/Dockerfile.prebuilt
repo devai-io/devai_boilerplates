@@ -1,0 +1,5 @@
+# Packages a binary that was built elsewhere: no Rust toolchain, no compile step.
+FROM gcr.io/distroless/cc-debian13:nonroot
+COPY bin/rust-docker-pipeline /usr/local/bin/app
+EXPOSE 8080
+ENTRYPOINT ["/usr/local/bin/app"]

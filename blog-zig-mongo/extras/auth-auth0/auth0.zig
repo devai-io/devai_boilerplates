@@ -1,12 +1,15 @@
-//! Drop-in Auth0 access-token verifier: validates RS256 JWTs against your
-//! tenant's JWKS using only std.crypto, and checks issuer + audience. See the
-//! README next to this file for how to wire it in (drop into src/ as auth0.zig).
+//! Drop-in Auth0 access-token verifier: checks RS256 JWTs against your
+//! tenant's JWKS using only std, including issuer and audience. See the
+//! README next to this file for how to wire it in.
 
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 const rsa = std.crypto.Certificate.rsa;
 const Sha256 = std.crypto.hash.sha2.Sha256;
 const b64 = std.base64.url_safe_no_pad;
+
+/// Tolerated clock skew between Auth0 and this server, in seconds.
+const leeway = 5;
 
 pub const Verifier = struct {
     gpa: Allocator,
@@ -16,14 +19,14 @@ pub const Verifier = struct {
     /// Your API identifier (AUTH0_AUDIENCE).
     audience: []const u8,
     jwks_url: []const u8,
-    mutex: std.Thread.Mutex = .{},
+    mutex: std.Io.Mutex = .init,
     keys_arena: std.heap.ArenaAllocator,
     keys: []const Jwk = &.{},
+    fetched_at: i64 = 0,
 
     const Jwk = struct { kid: []const u8, n: []const u8, e: []const u8 };
 
     /// `domain` is the bare tenant domain, e.g. "your-tenant.us.auth0.com".
-    /// The returned Verifier borrows nothing; strings are duped into `gpa`.
     pub fn init(gpa: Allocator, io: std.Io, domain: []const u8, audience: []const u8) !Verifier {
         return .{
             .gpa = gpa,
@@ -31,7 +34,7 @@ pub const Verifier = struct {
             .issuer = try std.fmt.allocPrint(gpa, "https://{s}/", .{domain}),
             .audience = try gpa.dupe(u8, audience),
             .jwks_url = try std.fmt.allocPrint(gpa, "https://{s}/.well-known/jwks.json", .{domain}),
-            .keys_arena = std.heap.ArenaAllocator.init(gpa),
+            .keys_arena = .init(gpa),
         };
     }
 
@@ -42,8 +45,9 @@ pub const Verifier = struct {
         self.keys_arena.deinit();
     }
 
-    /// Validates signature, expiry, issuer and audience; returns the Auth0
-    /// user id (`sub`, e.g. "auth0|abc123") allocated in `arena`. Thread-safe.
+    /// Checks the signature, `exp`, `nbf`, issuer and audience; returns the
+    /// Auth0 user id (`sub`, e.g. "auth0|abc123") allocated in `arena`.
+    /// Thread-safe.
     pub fn verify(self: *Verifier, arena: Allocator, token: []const u8) ![]const u8 {
         var parts = std.mem.splitScalar(u8, token, '.');
         const header_b64 = parts.next() orelse return error.InvalidToken;
@@ -51,70 +55,45 @@ pub const Verifier = struct {
         const sig_b64 = parts.next() orelse return error.InvalidToken;
         if (parts.next() != null) return error.InvalidToken;
 
-        const header = std.json.parseFromSliceLeaky(struct {
-            alg: []const u8 = "",
-            kid: []const u8 = "",
-        }, arena, try decodeB64(arena, header_b64), .{
-            .ignore_unknown_fields = true,
-        }) catch return error.InvalidToken;
+        const header = try parseSegment(struct { alg: []const u8, kid: []const u8 }, arena, header_b64);
         if (!std.mem.eql(u8, header.alg, "RS256")) return error.InvalidToken;
 
         const jwk = (try self.findKey(arena, header.kid)) orelse blk: {
-            // Unknown kid: the tenant may have rotated keys. Refetch once.
+            // Unknown kid: the tenant may have rotated its keys.
             try self.refresh();
             break :blk (try self.findKey(arena, header.kid)) orelse return error.UnknownKey;
         };
+        try verifyRs256(arena, jwk, token[0 .. header_b64.len + 1 + payload_b64.len], sig_b64);
 
-        const signing_input = token[0 .. header_b64.len + 1 + payload_b64.len];
-        try verifyRs256(arena, jwk, signing_input, sig_b64);
+        const claims = try parseSegment(struct {
+            sub: []const u8,
+            exp: i64,
+            nbf: i64 = 0,
+            iss: []const u8,
+            aud: std.json.Value, // a string or an array of strings
+        }, arena, payload_b64);
+        const now = std.Io.Clock.now(.real, self.io).toSeconds();
+        if (claims.exp + leeway <= now or claims.nbf - leeway > now) return error.TokenExpired;
+        if (!std.mem.eql(u8, claims.iss, self.issuer)) return error.WrongIssuer;
+        if (!self.audienceMatches(claims.aud)) return error.WrongAudience;
+        return claims.sub;
+    }
 
-        const payload = std.json.parseFromSliceLeaky(
-            std.json.Value,
-            arena,
-            try decodeB64(arena, payload_b64),
-            .{},
-        ) catch return error.InvalidToken;
-        const claims = switch (payload) {
-            .object => |o| o,
-            else => return error.InvalidToken,
-        };
-
-        const exp = switch (claims.get("exp") orelse return error.InvalidToken) {
-            .integer => |v| v,
-            else => return error.InvalidToken,
-        };
-        if (exp <= std.Io.Clock.now(.real, self.io).toSeconds()) return error.TokenExpired;
-
-        const iss = switch (claims.get("iss") orelse return error.InvalidToken) {
-            .string => |s| s,
-            else => return error.InvalidToken,
-        };
-        if (!std.mem.eql(u8, iss, self.issuer)) return error.WrongIssuer;
-
-        // `aud` may be a single string or an array of strings.
-        const aud_ok = switch (claims.get("aud") orelse return error.InvalidToken) {
-            .string => |s| std.mem.eql(u8, s, self.audience),
-            .array => |arr| blk: {
-                for (arr.items) |item| switch (item) {
-                    .string => |s| if (std.mem.eql(u8, s, self.audience)) break :blk true,
-                    else => {},
-                };
-                break :blk false;
+    fn audienceMatches(self: *const Verifier, aud: std.json.Value) bool {
+        switch (aud) {
+            .string => |s| return std.mem.eql(u8, s, self.audience),
+            .array => |list| for (list.items) |item| switch (item) {
+                .string => |s| if (std.mem.eql(u8, s, self.audience)) return true,
+                else => {},
             },
-            else => false,
-        };
-        if (!aud_ok) return error.WrongAudience;
-
-        const sub = switch (claims.get("sub") orelse return error.InvalidToken) {
-            .string => |s| s,
-            else => return error.InvalidToken,
-        };
-        return arena.dupe(u8, sub);
+            else => {},
+        }
+        return false;
     }
 
     fn findKey(self: *Verifier, arena: Allocator, kid: []const u8) !?Jwk {
-        self.mutex.lock();
-        defer self.mutex.unlock();
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
         for (self.keys) |key| {
             if (!std.mem.eql(u8, key.kid, kid)) continue;
             // Copy out so a concurrent refresh can't free it under us.
@@ -127,7 +106,17 @@ pub const Verifier = struct {
         return null;
     }
 
+    /// Refetches the JWKS, at most once a minute so tokens with made-up kids
+    /// can't turn every request into a call to Auth0.
     fn refresh(self: *Verifier) !void {
+        const now = std.Io.Clock.now(.real, self.io).toSeconds();
+        {
+            self.mutex.lockUncancelable(self.io);
+            defer self.mutex.unlock(self.io);
+            if (now - self.fetched_at < 60) return;
+            self.fetched_at = now;
+        }
+
         var body: std.Io.Writer.Allocating = .init(self.gpa);
         defer body.deinit();
         var client: std.http.Client = .{ .allocator = self.gpa, .io = self.io };
@@ -138,51 +127,49 @@ pub const Verifier = struct {
         }) catch return error.JwksFetchFailed;
         if (result.status != .ok) return error.JwksFetchFailed;
 
-        self.mutex.lock();
-        defer self.mutex.unlock();
-        _ = self.keys_arena.reset(.free_all);
-        const aa = self.keys_arena.allocator();
-
+        var arena: std.heap.ArenaAllocator = .init(self.gpa);
+        errdefer arena.deinit();
         const jwks = std.json.parseFromSliceLeaky(struct {
-            keys: []const struct {
-                kty: []const u8 = "",
-                kid: []const u8 = "",
-                n: []const u8 = "",
-                e: []const u8 = "",
-            },
-        }, aa, body.written(), .{ .ignore_unknown_fields = true }) catch
+            keys: []const struct { kty: []const u8 = "", kid: []const u8 = "", n: []const u8 = "", e: []const u8 = "" },
+        }, arena.allocator(), body.written(), .{ .ignore_unknown_fields = true }) catch
             return error.JwksInvalid;
-
-        var list: std.ArrayList(Jwk) = .empty;
+        var keys: std.ArrayList(Jwk) = .empty;
         for (jwks.keys) |key| {
-            if (!std.mem.eql(u8, key.kty, "RSA")) continue;
-            if (key.kid.len == 0 or key.n.len == 0 or key.e.len == 0) continue;
-            try list.append(aa, .{ .kid = key.kid, .n = key.n, .e = key.e });
+            if (!std.mem.eql(u8, key.kty, "RSA") or key.kid.len == 0) continue;
+            try keys.append(arena.allocator(), .{ .kid = key.kid, .n = key.n, .e = key.e });
         }
-        self.keys = list.items;
+
+        self.mutex.lockUncancelable(self.io);
+        defer self.mutex.unlock(self.io);
+        self.keys_arena.deinit();
+        self.keys_arena = arena;
+        self.keys = keys.items;
     }
 };
 
 fn verifyRs256(arena: Allocator, jwk: Verifier.Jwk, signing_input: []const u8, sig_b64: []const u8) !void {
-    var modulus = try decodeB64(arena, jwk.n);
+    var modulus = try decode(arena, jwk.n);
     while (modulus.len > 0 and modulus[0] == 0) modulus = modulus[1..];
-    const exponent = try decodeB64(arena, jwk.e);
-    const sig = try decodeB64(arena, sig_b64);
+    const exponent = try decode(arena, jwk.e);
+    const sig = try decode(arena, sig_b64);
     if (sig.len != modulus.len) return error.InvalidSignature;
 
     const key = rsa.PublicKey.fromBytes(exponent, modulus) catch return error.InvalidKey;
     switch (modulus.len) {
-        256 => rsa.PKCS1v1_5Signature.verify(256, sig[0..256].*, signing_input, key, Sha256) catch
-            return error.InvalidSignature,
-        384 => rsa.PKCS1v1_5Signature.verify(384, sig[0..384].*, signing_input, key, Sha256) catch
-            return error.InvalidSignature,
-        512 => rsa.PKCS1v1_5Signature.verify(512, sig[0..512].*, signing_input, key, Sha256) catch
+        inline 256, 384, 512 => |len| rsa.PKCS1v1_5Signature.verify(len, sig[0..len].*, signing_input, key, Sha256) catch
             return error.InvalidSignature,
         else => return error.UnsupportedKeySize,
     }
 }
 
-fn decodeB64(arena: Allocator, s: []const u8) ![]u8 {
+/// Decodes one base64url token segment and parses its JSON into `T`.
+fn parseSegment(comptime T: type, arena: Allocator, segment: []const u8) !T {
+    return std.json.parseFromSliceLeaky(T, arena, try decode(arena, segment), .{
+        .ignore_unknown_fields = true,
+    }) catch error.InvalidToken;
+}
+
+fn decode(arena: Allocator, s: []const u8) ![]u8 {
     const len = b64.Decoder.calcSizeForSlice(s) catch return error.InvalidToken;
     const out = try arena.alloc(u8, len);
     b64.Decoder.decode(out, s) catch return error.InvalidToken;

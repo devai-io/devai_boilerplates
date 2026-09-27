@@ -1,0 +1,6 @@
+data
+.git
+.github
+.env
+.dart_tool
+build

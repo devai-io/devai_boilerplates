@@ -1,19 +1,13 @@
-// Weather Right Now — type a city, see its current weather.
-// Concept: CHAINING two API calls. First we look up WHERE the city is
-// (its latitude/longitude), then we use that answer to ask a second API
-// what the weather is there. The output of call #1 feeds call #2.
-
 const form = document.getElementById("form");
 const input = document.getElementById("city");
 const card = document.getElementById("card");
 const statusEl = document.getElementById("status");
 
-// Weather services report the sky as a WMO "weather code" — just a number.
-// This lookup turns each number into a short label and an emoji a human
-// can read. We only list the common ones; anything else falls back below.
+// The API reports the sky as a WMO "weather code" number; this turns the common
+// ones into words and an emoji.
 const WEATHER_CODES = {
   0: { text: "Clear", icon: "☀️" },
-  1: { text: "Partly cloudy", icon: "⛅" },
+  1: { text: "Mainly clear", icon: "🌤️" },
   2: { text: "Partly cloudy", icon: "⛅" },
   3: { text: "Overcast", icon: "☁️" },
   45: { text: "Fog", icon: "🌫️" },
@@ -42,41 +36,38 @@ const WEATHER_CODES = {
   99: { text: "Thunderstorm", icon: "⛈️" },
 };
 
-// Look up a code, or return a safe default if we've never seen it.
 function describe(code) {
   return WEATHER_CODES[code] || { text: "Unknown", icon: "❓" };
 }
 
+// Two CHAINED calls: the answer to the first is the question for the second.
+// Weather is looked up by coordinates, not names, so first we ask a geocoding
+// API where the city is, then feed its latitude/longitude to the forecast API.
 async function loadWeather(city) {
   statusEl.textContent = "Loading…";
   card.hidden = true;
 
   try {
-    // STEP 1 — GEOCODE: turn the city name into coordinates.
-    // encodeURIComponent keeps spaces and odd characters from breaking the URL.
+    // Call 1 — city name → coordinates.
     const geoRes = await fetch(
       `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=en&format=json`,
     );
     if (!geoRes.ok) throw new Error(`Geocoding returned ${geoRes.status}`);
 
     const geo = await geoRes.json();
-    // When nothing matches, `results` is missing entirely or is an empty array.
     if (!geo.results || geo.results.length === 0) {
       statusEl.textContent = "City not found.";
       return;
     }
+    const place = geo.results[0]; // { name, country, latitude, longitude, … }
 
-    // results[0] = { name, country, latitude, longitude, ... } — the best match.
-    const place = geo.results[0];
-
-    // STEP 2 — WEATHER: feed those coordinates into the forecast API.
+    // Call 2 — coordinates → current weather.
     const weatherRes = await fetch(
       `https://api.open-meteo.com/v1/forecast?latitude=${place.latitude}&longitude=${place.longitude}&current=temperature_2m,relative_humidity_2m,wind_speed_10m,weather_code`,
     );
     if (!weatherRes.ok) throw new Error(`Weather returned ${weatherRes.status}`);
 
     const weather = await weatherRes.json();
-    // `weather.current` = { temperature_2m, relative_humidity_2m, wind_speed_10m, weather_code }
     render(place, weather.current);
     statusEl.textContent = "";
   } catch (err) {
@@ -85,10 +76,11 @@ async function loadWeather(city) {
   }
 }
 
-// Copy the numbers from both calls onto the page.
 function render(place, current) {
   const sky = describe(current.weather_code);
-  document.getElementById("place").textContent = `${place.name}, ${place.country}`;
+  document.getElementById("place").textContent = [place.name, place.country]
+    .filter(Boolean)
+    .join(", ");
   document.getElementById("icon").textContent = sky.icon;
   document.getElementById("temp").textContent = `${Math.round(current.temperature_2m)}°C`;
   document.getElementById("condition").textContent = sky.text;
@@ -98,10 +90,9 @@ function render(place, current) {
 }
 
 form.addEventListener("submit", (event) => {
-  event.preventDefault(); // stop the form from reloading the page
+  event.preventDefault();
   const city = input.value.trim();
   if (city) loadWeather(city);
 });
 
-// Show one city on first load so the page isn't empty.
 loadWeather("London");

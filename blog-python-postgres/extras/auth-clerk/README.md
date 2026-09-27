@@ -2,7 +2,8 @@
 
 Replaces the built-in email/password auth with [Clerk](https://clerk.com).
 Clerk owns sign-up, sign-in and sessions; the API only verifies the session
-JWT it receives against your instance's JWKS. One file, no Clerk SDK.
+JWT it receives against your instance's JWKS (RS256 signature, issuer,
+expiry, `azp`). One file, no Clerk SDK.
 
 ## Install
 
@@ -11,7 +12,10 @@ JWT it receives against your instance's JWKS. One file, no Clerk SDK.
 3. In `app/posts.py`, change one import:
    `from .clerk_auth import current_user_id`
 4. Set `CLERK_ISSUER` to your Frontend API URL from the Clerk dashboard,
-   e.g. `https://your-app.clerk.accounts.dev`
+   e.g. `https://your-app.clerk.accounts.dev`, and `CLERK_AUTHORIZED_PARTIES`
+   to the origins allowed to mint tokens for this API (comma-separated,
+   checked against the `azp` claim; leave it unset to skip the check),
+   e.g. `https://your-site.com,http://localhost:5173`
 
 ## Delete / adjust
 

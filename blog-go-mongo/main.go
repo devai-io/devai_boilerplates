@@ -1,4 +1,3 @@
-// Minimalist blog engine: Go stdlib HTTP + MongoDB (official mongo-driver).
 package main
 
 import (
@@ -9,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 type app struct {

@@ -1,78 +1,53 @@
 # country-explorer
 
-> Search any country and get its flag, capital, population, languages and money —
-> a lesson in pulling apart a rich, real-world data object.
+Search any country and get a tidy fact card — flag, capital, region,
+population, languages and currencies — from the free countries.dev API. It's a
+lesson in pulling apart a rich, real-world JSON object.
 
-**What you'll build:** a search box that looks up a country and shows a card with its
-flag image, capital city, population, spoken languages, and currencies, plus a link to
-see it on a map.
+## Run
 
-**What you'll learn:** how to render a _rich object_ — one where the interesting bits
-are buried in nested arrays. You'll meet `toLocaleString()` for turning a bare number
-into a comma-grouped one, and `.map()` for turning an array of little objects
-(`[{ name: "Japanese" }]`) into a clean, readable line of text.
+Get it: `git clone https://git.devai.io/templates/country-explorer.git`
 
-## Run it
-
-**The easy way:** double-click `index.html`. It opens in your browser and works — as
-long as you have internet, because it calls the countries API live.
+Double-click `index.html` — it opens in your browser and works, as long as
+you're online (it calls the countries API live). Nothing to install.
 
 Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-An **API** is just a URL that returns data instead of a web page. Open
-<https://countries.dev/name/Japan> in your browser — that's the exact raw JSON this app
-reads. It comes back as a list, because a search can match more than one country.
+## How it works
 
-```js
-const res = await fetch("https://countries.dev/name/Japan");
-const data = await res.json();   // an ARRAY of matches
-const country = data[0];         // take the closest one
-country.flags.svg;               // an image URL we drop straight into <img>
-```
+`search(name)` fetches `https://countries.dev/name/<name>` (no key needed). The
+answer is an array of every country whose name contains your search, and the
+page shows the first. One country is a rich object, and `render()` picks each
+kind of field apart:
 
-## How the code works
+- **plain values** — `name`, `capital`, `region` go straight into `textContent`;
+- **an image URL** — `flags.svg` becomes the `<img>`'s `src`, so the flag loads
+  from the address the API handed back;
+- **a big number** — `population.toLocaleString()` turns `125836021` into
+  `125,836,021`;
+- **arrays of objects** — `languages` and `currencies` are mapped down to their
+  `.name` and joined with commas;
+- **missing pieces** — Antarctica has no capital and no currency, so `?.` and
+  `|| "—"` show a dash instead of crashing.
 
-- **`fetch(url)`** sends the request. Typing part of a name (like "united") can match
-  several countries, so the answer is a **list**.
-- **`res.status === 404`** means nothing matched; we say so instead of crashing.
-- **`await res.json()`** gives an **array**, so we render `data[0]`.
-- **`render(c)`** is where the shapes get interesting:
-  - `c.population.toLocaleString()` — turns `125836021` into `125,836,021`.
-  - `c.languages.map((lang) => lang.name)` — `languages` is an _array of objects_ like
-    `[{ name: "Japanese" }]`; `.map()` pulls the `.name` out of each one so we can
-    `.join(", ")` them into one line. `currencies` works exactly the same way.
-  - `c.flags.svg` — an image URL, so we just point an `<img>` at it.
-  - `c.latlng` is `[lat, lng]`; we paste those into an OpenStreetMap link.
-- The whole thing sits in `try / catch` so a dropped connection shows a message.
+A 404 means no country matched and the page says so; "Loading…" and a friendly
+error cover the rest.
 
-## Try changing something
+Try it: show every match as its own card, add each currency's `symbol`, or
+show the `nativeName` of each language.
 
-- Show the `subregion` and `nativeName` too (open the raw JSON to see every field).
-- List _every_ match, not just the first — loop over `data` and build a card for each.
-- Add the currency symbol next to its name: each currency object also has a `symbol`.
-
-## A note on images and missing fields
-
-The flag is an image the API gives you — the one kind of remote picture this app loads,
-and only because the data _is_ a picture. Also notice the guards: `languages`,
-`currencies`, `capital` and `latlng` can all be missing or empty for some places (try
-"Antarctica"), so we check before using them. Real data is messy; assume a field might
-be absent. A `404` here just means nothing matched what you typed.
-
-## Files
+## Layout
 
 ```
-index.html    the search box and the (hidden until loaded) country card
-styles.css    how it looks (light + dark)
-app.js        fetch the country, unpack the object, render it
-Dockerfile    serve it with nginx (what compose builds)
-compose.yaml  serve it like production: docker compose up --build
+index.html   the search form, a status line and a hidden fact card
+app.js       search() and render()
+styles.css   the look; follows your system's light or dark mode
 ```
 
 ## Deploy
@@ -84,4 +59,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
-from the internet.
+from the internet. Next up:
+[ip-lookup](https://git.devai.io/templates/ip-lookup).

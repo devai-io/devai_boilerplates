@@ -1,5 +1,5 @@
-use sqlx::postgres::PgPoolOptions;
 use sqlx::PgPool;
+use sqlx::postgres::PgPoolOptions;
 
 /// Connects to Postgres and applies `schema.sql`. The schema only uses
 /// `CREATE ... IF NOT EXISTS`, so running it on every startup is safe.

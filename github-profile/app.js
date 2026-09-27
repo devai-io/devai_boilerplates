@@ -1,32 +1,30 @@
-// GitHub Profile Card — type a username, fetch their public profile, show it.
-// Concept: call a real API with fetch(), wait for the JSON, then render it.
-
 const form = document.getElementById("form");
 const input = document.getElementById("username");
 const card = document.getElementById("card");
 const statusEl = document.getElementById("status");
 
+// The whole fetch() pattern: request a URL, check the status, turn the body
+// into a JavaScript object with res.json(), then put its fields on the page.
 async function loadProfile(username) {
   statusEl.textContent = "Loading…";
   card.hidden = true;
 
   try {
-    // GitHub's REST API. No key needed for public profiles.
-    // encodeURIComponent keeps odd characters from breaking the URL.
-    const res = await fetch(
-      `https://api.github.com/users/${encodeURIComponent(username)}`,
-    );
+    const res = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`);
 
+    // fetch() only throws when the network fails. A 404 or 403 is still a
+    // "successful" response, so check res.status yourself.
     if (res.status === 404) {
       statusEl.textContent = `No user called "${username}".`;
       return;
     }
-    if (!res.ok) {
-      // e.g. 403 when you've made too many requests without signing in.
-      throw new Error(`GitHub returned ${res.status}`);
+    if (res.status === 403 || res.status === 429) {
+      statusEl.textContent = "GitHub's hourly limit for anonymous lookups is used up — try again later.";
+      return;
     }
+    if (!res.ok) throw new Error(`GitHub returned ${res.status}`);
 
-    const user = await res.json(); // the response body, turned into a JS object
+    const user = await res.json();
     render(user);
     statusEl.textContent = "";
   } catch (err) {
@@ -35,7 +33,6 @@ async function loadProfile(username) {
   }
 }
 
-// Copy fields off the `user` object onto the page.
 function render(user) {
   document.getElementById("avatar").src = user.avatar_url;
   document.getElementById("name").textContent = user.name || user.login;
@@ -49,10 +46,9 @@ function render(user) {
 }
 
 form.addEventListener("submit", (event) => {
-  event.preventDefault(); // stop the form from reloading the page
+  event.preventDefault();
   const name = input.value.trim();
   if (name) loadProfile(name);
 });
 
-// Show one example on first load so the page isn't empty.
 loadProfile("torvalds");

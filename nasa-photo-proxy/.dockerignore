@@ -1,9 +1,5 @@
-node_modules
-.env
+data
 .git
-.gitignore
-README.md
-Dockerfile
-.dockerignore
-compose.yaml
 .github
+.env
+node_modules

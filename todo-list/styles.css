@@ -1,7 +1,5 @@
-/* A small, self-contained stylesheet. No frameworks, no build step.
-   Colors adapt to the visitor's light/dark preference automatically. */
-
 :root {
+  color-scheme: light dark;
   --accent: #14b8a6;
   --bg: #0b0c0e;
   --surface: #14161a;

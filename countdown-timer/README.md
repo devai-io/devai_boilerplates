@@ -1,67 +1,46 @@
 # countdown-timer
 
-> A live countdown to any moment you pick — your first look at doing something
-> every second with `setInterval`.
+A live countdown to any moment you pick — days, hours, minutes and seconds,
+ticking away. It's your first look at doing something on a timer with
+`setInterval`, and at doing arithmetic with dates.
 
-**What you'll build:** a timer that shows the days, hours, minutes, and seconds
-left until a date you choose (or until New Year by default), ticking down in real
-time and celebrating with "🎉 It's time!" when it hits zero.
+## Run
 
-**What you'll learn:** how to run code on a repeating schedule with
-`setInterval`, how to _stop_ it with `clearInterval`, and how to do simple date
-math by subtracting two dates.
+Get it: `git clone https://git.devai.io/templates/countdown-timer.git`
 
-## Run it
-
-**The easy way:** double-click `index.html`. It opens in your browser and works.
-There is nothing to install and no build step.
+Double-click `index.html` — it opens in your browser and works. Nothing to
+install, no build step.
 
 Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-A `Date` in JavaScript is really just a number: milliseconds since 1970. So if
-you subtract two dates, you get the milliseconds between them:
+## How it works
 
-```js
-const msLeft = target - new Date(); // how far away the target is, in ms
-```
+`setInterval(tick, 1000)` asks the browser to run `tick()` every second. Each
+tick subtracts two dates — `target - new Date()` gives the milliseconds between
+them — and splits that gap into days (86,400 seconds), hours (3,600), minutes
+and seconds with `Math.floor` and `%` (the remainder).
 
-`setInterval(tick, 1000)` tells the browser "run `tick` every 1000 milliseconds."
-Each tick recalculates that gap and repaints the numbers. When the gap reaches
-zero we call `clearInterval` to stop — otherwise it would tick forever.
+`setInterval` returns an id; `clearInterval(id)` stops it. The code clears the
+old timer before starting a new one whenever you pick a date, and stops the
+clock for good when it reaches zero. It counts down to next New Year until you
+choose something else.
 
-## How the code works
+Try it: count down to your birthday with `new Date("2027-05-01")`, add a
+"Reset to New Year" button, or make the seconds pulse by toggling a CSS class
+on each tick.
 
-- **`tick()`** is the function that runs every second. It computes `msLeft`, and
-  if that's `<= 0` it shows the message and calls `clearInterval(timer)`.
-- **The math** converts milliseconds to units: `86400` seconds make a day, `3600`
-  an hour, `60` a minute. The `%` (remainder) operator peels off each piece.
-- **`setInterval`** returns an id; we keep it in `timer` so `clearInterval(timer)`
-  can find and cancel it later.
-- **`start()`** clears any old timer before starting a new one — important, or
-  picking a new date would leave two timers running at once.
-- **Picking a date** builds a `Date` from the input; if it's invalid we fall back
-  to New Year.
-
-## Try changing something
-
-- Count down to your birthday by setting `target` to `new Date("2027-05-01")`.
-- Add a "Reset to New Year" button that sets `target = nextNewYear()` and restarts.
-- Make the seconds pulse by toggling a CSS class on the seconds element each tick.
-
-## Files
+## Layout
 
 ```
-index.html      the date picker and the four number boxes
-styles.css      how it looks (light + dark)
-app.js          the tick, the date math, and start/stop
-Dockerfile      optional: serve it with nginx
-compose.yaml    optional: docker compose up --build
+index.html   the date picker and the four number boxes
+app.js       tick(), start(), and the interval they share
+styles.css   the look; follows your system's light or dark mode
 ```
 
 ## Deploy
@@ -73,4 +52,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
-JavaScript, one concept at a time.
+JavaScript, one concept at a time. Next up:
+[dark-mode-toggle](https://git.devai.io/templates/dark-mode-toggle).

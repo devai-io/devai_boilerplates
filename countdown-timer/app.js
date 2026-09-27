@@ -1,7 +1,3 @@
-// Countdown Timer — every second, work out how far away a target time is and
-// show the days / hours / minutes / seconds left. Stop the clock at zero.
-
-// 1) Grab the elements we need.
 const targetInput = document.getElementById("target");
 const daysEl = document.getElementById("days");
 const hoursEl = document.getElementById("hours");
@@ -9,58 +5,46 @@ const minutesEl = document.getElementById("minutes");
 const secondsEl = document.getElementById("seconds");
 const messageEl = document.getElementById("message");
 
-// 2) `target` is the moment we're counting down to, stored as a Date.
-//    Default to the next New Year so there's always something ticking.
 function nextNewYear() {
-  const year = new Date().getFullYear() + 1;
-  return new Date(year, 0, 1, 0, 0, 0); // Jan 1st, midnight, next year
+  return new Date(new Date().getFullYear() + 1, 0, 1); // Jan 1st, midnight
 }
 let target = nextNewYear();
 
-// 3) `timer` holds the id that setInterval hands back, so we can stop it later.
+// setInterval hands back an id. We keep it so clearInterval can stop the clock.
 let timer = null;
 
-// 4) The "tick": this runs once every second. It compares now to the target,
-//    updates the four numbers, and stops the clock once we hit zero.
+// tick() runs once a second. Subtracting two Dates gives the milliseconds
+// between them; the rest is dividing that gap into days, hours, minutes, seconds.
 function tick() {
-  const now = new Date();
-  const msLeft = target - now; // subtracting two Dates gives milliseconds apart
+  const msLeft = target - new Date();
 
   if (msLeft <= 0) {
-    daysEl.textContent = "0";
-    hoursEl.textContent = "0";
-    minutesEl.textContent = "0";
-    secondsEl.textContent = "0";
+    daysEl.textContent = hoursEl.textContent = minutesEl.textContent = secondsEl.textContent = "0";
     messageEl.textContent = "🎉 It's time!";
-    clearInterval(timer); // stop calling tick — we're done
+    clearInterval(timer); // we're done — stop calling tick()
     return;
   }
 
   messageEl.textContent = "";
-
-  // Turn the millisecond gap into whole days, hours, minutes, and seconds.
   const totalSeconds = Math.floor(msLeft / 1000);
-  daysEl.textContent = Math.floor(totalSeconds / 86400); // 86400 seconds in a day
-  hoursEl.textContent = Math.floor((totalSeconds % 86400) / 3600); // 3600 in an hour
+  daysEl.textContent = Math.floor(totalSeconds / 86400); // 86,400 seconds in a day
+  hoursEl.textContent = Math.floor((totalSeconds % 86400) / 3600);
   minutesEl.textContent = Math.floor((totalSeconds % 3600) / 60);
-  secondsEl.textContent = totalSeconds % 60; // the leftover seconds
+  secondsEl.textContent = totalSeconds % 60;
 }
 
-// 5) (Re)start the countdown. We clear any existing interval first so we never
-//    end up with two timers running at the same time.
+// Always clear the old interval before starting a new one — otherwise every
+// date change would stack up another timer, all running at once.
 function start() {
   clearInterval(timer);
-  tick(); // show a value right away instead of waiting a full second
-  timer = setInterval(tick, 1000); // then run tick again every 1000 ms
+  tick(); // show a value now instead of waiting a full second
+  timer = setInterval(tick, 1000);
 }
 
-// 6) When the user picks a date, count down to that instead. An empty or
-//    invalid box gives an "Invalid Date", so we fall back to New Year.
 targetInput.addEventListener("change", () => {
   const picked = new Date(targetInput.value);
-  target = isNaN(picked.getTime()) ? nextNewYear() : picked;
+  target = isNaN(picked.getTime()) ? nextNewYear() : picked; // empty box → New Year
   start();
 });
 
-// 7) Kick everything off.
 start();

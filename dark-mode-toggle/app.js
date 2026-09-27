@@ -1,44 +1,28 @@
-// Dark Mode Toggle — flip between light and dark by setting one attribute on
-// <html>. Remember the choice, and fall back to the visitor's OS setting.
-
-// 1) The elements: the button and the two little labels inside it.
 const toggle = document.getElementById("toggle");
 const icon = document.getElementById("toggleIcon");
-const text = document.getElementById("toggleText");
 
-// 2) <html> is where the theme lives. Every color in styles.css reacts to
-//    [data-theme="light"] / [data-theme="dark"] on this one element.
+// The whole theme lives in ONE attribute on <html>. Every color in styles.css is
+// a variable that changes with [data-theme="light"] / [data-theme="dark"], so
+// flipping this attribute repaints the entire page.
 const root = document.documentElement;
 
-// 3) Decide which theme to start with:
-//    - the choice the user made last time (saved in localStorage), or
-//    - if there's no saved choice, whatever the operating system prefers.
+// Start with the visitor's saved choice, or else whatever their OS prefers.
 function initialTheme() {
   const saved = localStorage.getItem("theme");
   if (saved === "light" || saved === "dark") return saved;
-
-  const prefersLight = window.matchMedia("(prefers-color-scheme: light)").matches;
-  return prefersLight ? "light" : "dark";
+  return window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
 }
 
-// 4) Apply a theme: set the attribute (the CSS does the rest), update the
-//    button, and save the choice for next time.
-function setTheme(theme) {
-  root.setAttribute("data-theme", theme);
-  localStorage.setItem("theme", theme);
-
-  // Show the current state on the button.
-  const isDark = theme === "dark";
-  icon.textContent = isDark ? "🌙" : "☀️";
-  text.textContent = isDark ? "Dark" : "Light";
-  toggle.setAttribute("aria-pressed", String(isDark));
+function applyTheme(theme) {
+  root.dataset.theme = theme;
+  icon.textContent = theme === "dark" ? "🌙" : "☀️";
+  toggle.setAttribute("aria-pressed", String(theme === "dark"));
 }
 
-// 5) Clicking flips to the opposite theme.
 toggle.addEventListener("click", () => {
-  const current = root.getAttribute("data-theme");
-  setTheme(current === "dark" ? "light" : "dark");
+  const next = root.dataset.theme === "dark" ? "light" : "dark";
+  applyTheme(next);
+  localStorage.setItem("theme", next); // only a real click is remembered
 });
 
-// 6) Set everything up the moment the page loads.
-setTheme(initialTheme());
+applyTheme(initialTheme());

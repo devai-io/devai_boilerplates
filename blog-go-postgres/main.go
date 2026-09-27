@@ -1,4 +1,3 @@
-// Minimalist blog engine: Go stdlib HTTP + Postgres (pgx/v5).
 package main
 
 import (

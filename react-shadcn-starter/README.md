@@ -1,61 +1,59 @@
 # react-shadcn-starter
 
-Vite + React 19 + TypeScript + Tailwind CSS v3 with [shadcn/ui](https://ui.shadcn.com)
-fully configured: CSS-variable theming (zinc, dark by default), the `cn` helper, the
-`@/` import alias, and three components included as real source you own —
-`Button`, `Card`, `Input`.
+Vite 8 + React 19 + TypeScript + Tailwind CSS v4 with [shadcn/ui](https://ui.shadcn.com)
+set up the way the shadcn CLI does it today: the `radix-nova` style, OKLCH CSS-variable
+theming (dark by default), the `@/` import alias, and three components you own as
+source — `Button`, `Card`, `Input`.
 
-## Requirements
+## Run
 
-- [Bun](https://bun.sh) (or Node 20+ with npm/pnpm — swap the commands accordingly)
+Get it: `git clone https://git.devai.io/templates/react-shadcn-starter.git`
 
-## Quickstart
+    docker compose up --build
 
-```sh
-bun install
-bun run dev      # http://localhost:5173
-bun run build    # production build in dist/
-```
+Open http://localhost:8080 — the production build, served by nginx.
 
-## Adding more components
+Hot-reload dev server (Node 24):
 
-`components.json` is set up, so the shadcn CLI drops new components straight into
-`src/components/ui/`:
+    npm ci
+    npm run dev        # http://localhost:5173
 
-```sh
-bunx shadcn@latest add dialog
-bunx shadcn@latest add dropdown-menu tabs badge
-```
+## How it works
 
-Components are plain source files in your tree — edit them freely; there is no
-package to stay in sync with.
+shadcn/ui is not a component package: `components.json` tells the CLI where
+components live, and each `add` copies real source into `src/components/ui/`.
 
-## Theming
+    npx shadcn@latest add dialog
+    npx shadcn@latest add dropdown-menu tabs badge
 
-Colors live as HSL CSS variables in `src/index.css` (`:root` for light, `.dark` for
-dark) and are mapped to Tailwind utilities in `tailwind.config.js`. Dark mode is
-class-based; the starter ships with `class="dark"` on `<html>` — remove it (or
-toggle it at runtime) for light mode. To change the palette, regenerate the token
-block at ui.shadcn.com/themes and paste it over the one in `src/index.css`.
+Edit the files freely — there is nothing to stay in sync with. Components are
+built on the `radix-ui` primitives and merge class names with `cn`.
+
+Theming is CSS-first (Tailwind v4 — no `tailwind.config.js`): colors are OKLCH
+variables in `src/index.css` (`:root` for light, `.dark` for dark), mapped to
+utilities by the `@theme inline` block. Dark mode is class-based and `index.html`
+ships `class="dark"` on `<html>` — remove it (or toggle it at runtime) for light
+mode. To change the palette, generate a theme at ui.shadcn.com and paste its
+variables over the ones in `src/index.css`.
 
 ## Layout
 
-```
-components.json        shadcn CLI config (style: new-york, base: zinc)
-tailwind.config.js     Tailwind theme mapped to the CSS variables
-src/
-  index.css            Tailwind directives + shadcn token block
-  lib/utils.ts         cn() — clsx + tailwind-merge
-  components/ui/       button.tsx, card.tsx, input.tsx
-  App.tsx              Demo screen using all three
-```
+    components.json        shadcn CLI config (style radix-nova, base color neutral)
+    vite.config.ts         React + Tailwind plugins; @/ alias read from tsconfig.json
+    src/index.css          Tailwind, shadcn base styles, theme variables
+    src/lib/utils.ts       cn() — class-name merging
+    src/components/ui/     button.tsx, card.tsx, input.tsx
+    src/App.tsx            demo screen using all three
+    nginx.conf             SPA fallback + long-lived caching for hashed /assets/
 
-## Docker
+## Deploy
 
-Multi-stage build: Bun compiles the app, nginx-alpine serves `dist/` with SPA
-fallback (`nginx.conf`).
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
 
-```sh
-docker build -t react-shadcn-starter .
-docker run -p 8080:80 react-shadcn-starter
-```
+---
+Part of [devai.io](https://devai.io) — UI starters:
+[`react-tailwind-starter`](https://git.devai.io/templates/react-tailwind-starter) and
+`react-shadcn-starter`.

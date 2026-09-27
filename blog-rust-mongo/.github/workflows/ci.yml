@@ -9,7 +9,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker compose up -d --build
       - run: |
           timeout 60 sh -c 'until curl -fs localhost:8080/health; do sleep 2; done' \
@@ -23,7 +23,7 @@ jobs:
     permissions:
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - run: docker build -t "ghcr.io/${{ github.repository }}:latest" .
       - run: docker push "ghcr.io/${{ github.repository }}:latest"
@@ -37,4 +37,4 @@ jobs:
           install -m 600 /dev/null key && echo "${{ secrets.DEPLOY_KEY }}" > key
           ssh -i key -o StrictHostKeyChecking=accept-new \
             "${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}" \
-            "cd /srv/blog-rust-mongo && git pull && docker compose up -d --build"
+            "cd /srv/blog-rust-mongo && git pull --ff-only && docker compose up -d --build"

@@ -1,61 +1,48 @@
 # color-picker
 
-> Pick a color, see its HEX and RGB codes, get a matching palette, and copy any
-> value with one click.
+Pick a color and instantly see its HEX and RGB codes, a big preview and a
+palette of lighter and darker shades — then copy any of them with one click. It
+teaches the color input, how HEX and RGB relate, and the Clipboard API.
 
-**What you'll build:** a color tool with a native color picker, a big live swatch,
-the color's HEX and RGB written out, and five auto-generated tints and shades. Click
-any code and it lands on your clipboard with a little "Copied!" flash.
+## Run
 
-**What you'll learn:** how to read an `<input type="color">`, how a HEX code and an
-RGB triple are really the _same number_ in two costumes (and how to convert between
-them), and how to copy text to the clipboard with `navigator.clipboard.writeText`.
+Get it: `git clone https://git.devai.io/templates/color-picker.git`
 
-## Run it
-
-**The easy way:** double-click `index.html`. It opens in your browser and works.
-There is nothing to install and no build step.
+Double-click `index.html` — it opens in your browser and works. Nothing to
+install, no build step.
 
 Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-A HEX color like `#EC4899` is three pairs of hex digits — one each for red, green,
-and blue. `EC` is `236`, `48` is `72`, `99` is `153`. So HEX and `rgb(236, 72, 153)`
-describe the exact same color. Once you can move between the two, you can do math on
-colors: nudge every channel toward white and you get a lighter _tint_; toward black
-and you get a darker _shade_. That's the whole palette generator.
+## How it works
 
-## How the code works
+`<input type="color">` gives you the browser's own color picker, and its value
+is always a HEX string like `#ec4899`. Every `input` event redraws the page from
+that one value with `update(hex)`.
 
-- **`hexToRgb(hex)`** reads the string as one base-16 number, then slices out each
-  8-bit channel with bit shifts and masks.
-- **`rgbToHex(r, g, b)`** does the reverse, padding each channel to two digits.
-- **`mix(value, target, amount)`** slides one channel part-way toward `255` (lighter)
-  or `0` (darker). Five different amounts make the five palette swatches.
-- **`copy(text)`** calls `navigator.clipboard.writeText`, then adds a CSS class to
-  fade the toast in and a `setTimeout` to fade it back out.
-- **`readableText(...)`** guesses whether each swatch needs dark or light text so the
-  code on top stays legible.
+HEX and RGB are the same three numbers written two ways: `ec`, `48`, `99` in
+base 16 are `236`, `72`, `153` in base 10. `hexToRgb` reads the hex digits with
+`parseInt(…, 16)`; `rgbToHex` writes them back with `toString(16)`. The palette
+moves each channel part of the way toward 255 (a tint) or 0 (a shade).
 
-## Try changing something
+Clicking a value calls `navigator.clipboard.writeText(text)`. It's async and
+the browser may refuse, so the code awaits it in a `try` / `catch` and tells
+you either way in a small status line.
 
-- Add more swatches: extend the `steps` array with extra `amount` values.
-- Copy the value as CSS: change the toast to copy `background: #EC4899;`.
-- Show an HSL version too — look up how hue, saturation, and lightness work.
+Try it: add more swatches to the `steps` array, copy values as a CSS
+declaration (`background: #EC4899;`), or show an HSL version too.
 
-## Files
+## Layout
 
 ```
-index.html      the picker, swatch, values, and palette
-styles.css      how it looks (light + dark)
-app.js          color conversion, palette, and clipboard copying
-Dockerfile      optional: serve it with nginx
-compose.yaml    optional: docker compose up --build
+index.html   the preview, the color input, two value buttons and the palette row
+app.js       hex ↔ rgb conversion, the palette and copy()
+styles.css   the look; follows your system's light or dark mode
 ```
 
 ## Deploy
@@ -67,4 +54,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
-JavaScript, one concept at a time.
+JavaScript, one concept at a time. Next up:
+[modal-dialog](https://git.devai.io/templates/modal-dialog).

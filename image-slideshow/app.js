@@ -1,9 +1,4 @@
-// Image Slideshow — keep a list of slides and a number that says which one
-// we're on. Change the number, redraw the slide. Wrap around the ends with the
-// % (remainder) trick so Next past the last slide loops back to the first.
-
-// 1) Our "images". No image files needed — each slide is just a title and a CSS
-//    gradient, so the whole slideshow is self-contained and works offline.
+// Each "image" is a title and a CSS gradient, so there are no files to download.
 const slides = [
   { title: "Sunrise", gradient: "linear-gradient(135deg, #f97316, #fbbf24)" },
   { title: "Ocean", gradient: "linear-gradient(135deg, #0ea5e9, #22d3ee)" },
@@ -12,13 +7,15 @@ const slides = [
   { title: "Midnight", gradient: "linear-gradient(135deg, #1e293b, #4f46e5)" },
 ];
 
-// 2) The elements, and the index of the slide we're showing right now.
+const slideshow = document.getElementById("slideshow");
 const slide = document.getElementById("slide");
 const slideTitle = document.getElementById("slideTitle");
 const dotsBox = document.getElementById("dots");
+
+// The whole slideshow is this one number: which slide we're on. Every button
+// just changes `index` and calls show() to redraw.
 let index = 0;
 
-// 3) Build one clickable dot per slide, once. Each dot jumps to its slide.
 const dots = slides.map((_, i) => {
   const dot = document.createElement("button");
   dot.className = "dot";
@@ -29,19 +26,18 @@ const dots = slides.map((_, i) => {
   return dot;
 });
 
-// 4) Show the slide at position `i`: paint its gradient and title, and light up
-//    the matching dot.
 function show(i) {
   index = i;
-  const current = slides[index];
-  slide.style.background = current.gradient;
-  slideTitle.textContent = current.title;
-  dots.forEach((dot, d) => dot.classList.toggle("active", d === index));
+  slide.style.background = slides[index].gradient;
+  slideTitle.textContent = slides[index].title;
+  dots.forEach((dot, d) => {
+    dot.classList.toggle("active", d === index);
+    dot.setAttribute("aria-current", String(d === index));
+  });
 }
 
-// 5) Move by a step (+1 for next, -1 for prev). Adding slides.length before the
-//    % keeps the result positive even when we go back past 0, so it wraps
-//    cleanly in both directions.
+// % (remainder) wraps the index around the ends: from the last slide, +1 lands
+// on 0. Adding slides.length first keeps it positive, so -1 from 0 wraps too.
 function move(step) {
   show((index + step + slides.length) % slides.length);
 }
@@ -49,13 +45,21 @@ function move(step) {
 document.getElementById("prev").addEventListener("click", () => move(-1));
 document.getElementById("next").addEventListener("click", () => move(1));
 
-// 6) Auto-play: advance every 4 seconds. We keep the timer's id so we can
-//    pause it. Hovering the slide clears the timer; leaving starts it again.
-let timer = setInterval(() => move(1), 4000);
-slide.addEventListener("mouseenter", () => clearInterval(timer));
-slide.addEventListener("mouseleave", () => {
+let timer = null;
+function play() {
+  clearInterval(timer);
   timer = setInterval(() => move(1), 4000);
-});
+}
+function pause() {
+  clearInterval(timer);
+}
 
-// 7) Show the first slide to get started.
+// Auto-play stops while the pointer or keyboard focus is on the slideshow, so
+// it never moves out from under someone who is reading or clicking.
+slideshow.addEventListener("mouseenter", pause);
+slideshow.addEventListener("mouseleave", play);
+slideshow.addEventListener("focusin", pause);
+slideshow.addEventListener("focusout", play);
+
 show(0);
+play();

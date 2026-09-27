@@ -1,71 +1,50 @@
 # form-validation
 
-> A sign-up form that checks each field and explains exactly what's wrong —
-> the friendly way.
+A sign-up form that checks each field and explains exactly what's wrong, right
+under the field that's wrong. It teaches form events, a readable regex, and how
+to give feedback that screen readers announce too.
 
-**What you'll build:** a sign-up form (name, email, password, confirm password)
-that validates as you go. Leave a field and it checks itself; hit Sign up and it
-checks everything, showing a clear red message under any field that's wrong and a
-green "All good! ✓" when the whole form passes.
+## Run
 
-**What you'll learn:** how to validate user input _before_ accepting it, how to
-show helpful inline errors instead of relying on the browser's default popups,
-and how to keep it accessible with `aria-invalid`.
+Get it: `git clone https://git.devai.io/templates/form-validation.git`
 
-## Run it
-
-**The easy way:** double-click `index.html`. It opens in your browser and works.
-There is nothing to install and no build step.
+Double-click `index.html` — it opens in your browser and works. Nothing to
+install, no build step.
 
 Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-Each field has one small rule that answers a single question: _"is this value
-OK, and if not, what should I tell the user?"_ A rule returns an empty string
-when everything is fine, or an error message when it isn't:
+## How it works
 
-```js
-validate: (value) => (value.trim() ? "" : "Please enter your name.");
-```
+Each field is described once, in the `fields` object: its input, its error
+`<p>`, and a `validate(value)` rule that returns an error message, or `""` when
+the value is fine. One function, `checkField`, runs a rule and shows the result.
 
-`checkField` runs the rule, drops the message under the field, and flags the
-input. We run it on **blur** (when you leave a field) for early feedback, and on
-**submit** for every field at once.
+- **On blur** (leaving a field) just that field is checked — early feedback
+  without nagging while you type.
+- **On submit** every field is checked so all errors appear at once, then the
+  cursor jumps to the first one to fix. `preventDefault()` stops the form from
+  being sent; this demo only validates.
+- **Accessibility:** `aria-invalid="true"` marks a wrong field, and each input's
+  `aria-describedby` points at its error `<p>`, so screen readers read the
+  message aloud.
+- `novalidate` on the `<form>` turns off the browser's own popups so ours show
+  instead. The email rule is deliberately simple: `something@something.something`.
 
-## How the code works
+Try it: require a digit in the password (`&& /\d/.test(value)`), add a "terms"
+checkbox that must be ticked, or disable the button until every field passes.
 
-- **`fields`** is one object describing every field — its input, its error `<p>`,
-  and its `validate` rule. Keeping them together makes the rest of the code tiny.
-- **The email rule** uses a simple regular expression,
-  `/^[^\s@]+@[^\s@]+\.[^\s@]+$/` — "some characters, an `@`, some characters, a
-  `.`, some more." Enough to catch obvious typos.
-- **The confirm rule** peeks at another field: it compares against
-  `fields.password.input.value`.
-- **`checkField`** sets `aria-invalid="true"` or `"false"` so screen readers know
-  the state, and returns `true`/`false` for whether the field passed.
-- **On submit**, `event.preventDefault()` stops the page from navigating, we
-  `.map` over every field to show all errors, and `.every` tells us if all
-  passed.
-
-## Try changing something
-
-- Require the password to contain a number: add `&& /\d/.test(value)` to its rule.
-- Add a "terms" checkbox and a rule that it must be checked.
-- Show the green success only, and disable the button until every field is valid.
-
-## Files
+## Layout
 
 ```
-index.html      the four fields, each with its own error line
-styles.css      how it looks (light + dark), including the red/green states
-app.js          the rules, the blur checks, and the submit check
-Dockerfile      optional: serve it with nginx
-compose.yaml    optional: docker compose up --build
+index.html   the form: each input followed by its (empty) error <p>
+app.js       the fields object, checkField() and the two event listeners
+styles.css   the look — invalid fields get a red border
 ```
 
 ## Deploy
@@ -77,4 +56,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
-JavaScript, one concept at a time.
+JavaScript, one concept at a time. Next up:
+[faq-accordion](https://git.devai.io/templates/faq-accordion).

@@ -1,89 +1,127 @@
-use warp::{Reply, reject};
-use serde_json::json;
-use chrono::Utc;
+use mongodb::bson::oid::ObjectId;
+use warp::http::StatusCode;
+use warp::{Rejection, Reply};
 
+use crate::articles::models::{Article, ArticleFields, ArticleUpdate, NewComment};
+use crate::articles::service;
 use crate::auth::models::AuthUser;
 use crate::environment::Environment;
-use crate::articles::service;
-use crate::WebResult;
-use crate::articles::models::{Article, NewComment, Comment};
-use crate::error::{AppError};
+use crate::error::ApiError;
 
-
-pub async fn get_article_by_url_handler(_url: String, _env: Environment) -> WebResult<impl Reply> {
-    println!("[get_article_by_url_handler] id {:?}", &_url);
-    let _result = service::get_article_by_url(_url, _env.db()).await.map_err(|_e| reject::custom(AppError::DataError))?;
-    Ok(warp::reply::json(&_result))
+fn article_not_found() -> ApiError {
+    ApiError::not_found("article not found")
 }
 
-pub async fn get_home_articles_handler(_env: Environment) -> WebResult<impl Reply> {
-    let _result = service::get_home_articles(_env.db()).await.map_err(|_e| reject::custom(AppError::DataError))?;
-    Ok(warp::reply::json(&_result))
+pub async fn get_articles_handler(env: Environment) -> Result<impl Reply, Rejection> {
+    let articles = service::get_articles(&env.articles, false).await?;
+    Ok(warp::reply::json(
+        &articles
+            .iter()
+            .map(Article::summary_json)
+            .collect::<Vec<_>>(),
+    ))
 }
 
-pub async fn get_articles_handler(_env: Environment) -> WebResult<impl Reply> {
-    let _result = service::get_articles(_env.db()).await.map_err(|_e| reject::custom(AppError::DataError))?;
-    Ok(warp::reply::json(&_result))
+pub async fn get_home_articles_handler(env: Environment) -> Result<impl Reply, Rejection> {
+    let articles = service::get_articles(&env.articles, true).await?;
+    Ok(warp::reply::json(
+        &articles
+            .iter()
+            .map(Article::summary_json)
+            .collect::<Vec<_>>(),
+    ))
 }
 
-pub async fn create_article_handler(mut _req: Article, _env: Environment, _user: AuthUser) -> WebResult<impl Reply> {
-    if _req.in_home == None {
-        _req.in_home = Some(false);
+pub async fn get_article_by_url_handler(
+    url: String,
+    env: Environment,
+) -> Result<impl Reply, Rejection> {
+    let article = service::get_article_by_url(&env.articles, &url)
+        .await?
+        .ok_or_else(article_not_found)?;
+    Ok(warp::reply::json(&article.to_json()))
+}
+
+pub async fn create_article_handler(
+    _admin: AuthUser,
+    req: ArticleFields,
+    env: Environment,
+) -> Result<impl Reply, Rejection> {
+    req.validate()?;
+    let article = service::create_article(&env.articles, &req).await?;
+    Ok(warp::reply::with_status(
+        warp::reply::json(&article.to_json()),
+        StatusCode::CREATED,
+    ))
+}
+
+pub async fn update_article_handler(
+    _admin: AuthUser,
+    req: ArticleUpdate,
+    env: Environment,
+) -> Result<impl Reply, Rejection> {
+    req.fields.validate()?;
+    let article = service::update_article(&env.articles, req.id, &req.fields)
+        .await?
+        .ok_or_else(article_not_found)?;
+    Ok(warp::reply::json(&article.to_json()))
+}
+
+pub async fn delete_article_handler(
+    id: ObjectId,
+    _admin: AuthUser,
+    env: Environment,
+) -> Result<impl Reply, Rejection> {
+    if !service::delete_article(&env.articles, id).await? {
+        return Err(article_not_found().into());
     }
-    if _req.tags == None {
-        _req.tags = Some(Vec::new());
+    Ok(StatusCode::NO_CONTENT)
+}
+
+pub async fn update_home_view_handler(
+    id: ObjectId,
+    _admin: AuthUser,
+    env: Environment,
+) -> Result<impl Reply, Rejection> {
+    let article = service::toggle_home_view(&env.articles, id)
+        .await?
+        .ok_or_else(article_not_found)?;
+    Ok(warp::reply::json(&article.to_json()))
+}
+
+pub async fn get_comments_handler(
+    article_id: ObjectId,
+    env: Environment,
+) -> Result<impl Reply, Rejection> {
+    let comments = service::get_comments(&env.articles, article_id).await?;
+    Ok(warp::reply::json(
+        &comments
+            .iter()
+            .map(|c| c.to_json(article_id))
+            .collect::<Vec<_>>(),
+    ))
+}
+
+pub async fn post_comment_handler(
+    req: NewComment,
+    env: Environment,
+) -> Result<impl Reply, Rejection> {
+    req.validate()?;
+    let comment = service::create_comment(&env.articles, &req).await?;
+    Ok(warp::reply::with_status(
+        warp::reply::json(&comment.to_json(req.article_id)),
+        StatusCode::CREATED,
+    ))
+}
+
+pub async fn delete_comment_handler(
+    article_id: ObjectId,
+    comment_id: ObjectId,
+    _admin: AuthUser,
+    env: Environment,
+) -> Result<impl Reply, Rejection> {
+    if !service::delete_comment(&env.articles, article_id, comment_id).await? {
+        return Err(ApiError::not_found("comment not found").into());
     }
-    _req.created_at = Some(Utc::now());
-    _req.updated_at = Some(Utc::now());
-
-    println!("[create_article_handler] in_home={}", &_req.in_home.clone().unwrap());
-    let _result = service::create_article(&_req, _env.db()).await.unwrap();
-    println!("[create_article_handler] Created article '{}'", &_req.title.unwrap());
-    Ok(warp::reply::json(&json!({"status":"success", "message":"Article saved"})))
+    Ok(StatusCode::NO_CONTENT)
 }
-
-pub async fn update_article_handler(mut _req: Article, _env: Environment, _user: AuthUser) -> WebResult<impl Reply> {
-    if _req.in_home == None {
-        _req.in_home = Some(false);
-    }
-    if _req.tags == None {
-        _req.tags = Some(Vec::new());
-    }
-    println!("[update_article_handler] Updating article id={}, title={}, tags={:?}", &_req.id.clone().unwrap(), &_req.title.clone().unwrap(), &_req.tags.clone().unwrap());
-    let _result = service::update_article(&_req, _env.db()).await.map_err(|_e| reject::custom(AppError::DataError))?;
-    Ok(warp::reply::json(&json!({"status":"success", "message":"Article updated"})))
-}
-
-pub async fn delete_article_handler(_id: String, _env: Environment, _user: AuthUser) -> WebResult<impl Reply> {
-    println!("[delete_article_handler] id={}", _id.clone());
-    let _result = service::delete_article(&_id, _env.db()).await.map_err(|_e| reject::custom(AppError::DataError))?;
-    Ok(warp::reply::json(&json!({"status":"success", "message":"Article deleted"})))
-}
-
-pub async fn update_home_view_handler(_id: String, _env: Environment, _user: AuthUser) -> WebResult<impl Reply> {
-    println!("[update_home_view_handler] id={}", &_id);
-    let _result = service::update_home_view(_id, _env.db()).await.map_err(|_e| reject::custom(AppError::DataError))?;
-    Ok(warp::reply::json(&json!({"status":"success", "message":"Article updated"})))
-}
-
-// Comments
-
-pub async fn post_comment_handler(mut _req: NewComment, _env: Environment) -> WebResult<impl Reply> {
-    let comment = Comment {
-        id: Some(uuid::Uuid::new_v4().to_string()),
-        author: _req.author.clone(),
-        email: _req.email.clone(),
-        content: _req.content,
-        created_at: Some(Utc::now())
-    };
-    let _result = service::create_comment(_req.article_id.clone(), &comment, _env.db()).await.map_err(|_e| reject::custom(AppError::DataError))?;
-    println!("[post_comment_handler] article={}, email={}, name={}", _req.article_id, _req.email, _req.author);
-    Ok(warp::reply::json(&json!({"status":"success", "message":"Comment saved"})))
-}
-
-pub async fn delete_comment_handler(_article_id: String, _comment_id: String, _env: Environment, _user: AuthUser) -> WebResult<impl Reply> {
-    let _result = service::delete_comment(_article_id.clone(), _comment_id.clone(), _env.db()).await.map_err(|_e| reject::custom(AppError::DataError))?;
-    println!("[delete_comment_handler] article_id={}, comment_id={}", _article_id, _comment_id);
-    Ok(warp::reply::json(&json!({"status":"success", "message":"Comment deleted"})))
-}
-

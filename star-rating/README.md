@@ -1,71 +1,49 @@
 # star-rating
 
-> Five stars that light up as you hover, lock in when you click, and remember your
-> rating the next time you visit.
+Five stars that light up as you hover, lock in when you click, and remember
+your rating next time you visit. It teaches the difference between a
+*previewed* value and a *committed* one — the heart of most interactive widgets.
 
-**What you'll build:** the classic star-rating widget. Hovering previews the fill up
-to the star under your pointer; moving away snaps back to whatever you last chose;
-clicking commits it. It shows "You rated: 4/5", works with the arrow keys, and saves
-your rating so it's still there after a refresh.
+## Run
 
-**What you'll learn:** the key idea behind interactive widgets — keeping a _preview_
-state separate from the _committed_ state — plus how to make something keyboard
-accessible with real `<button>`s and `aria-label`s, and how to persist a value with
-`localStorage`.
+Get it: `git clone https://git.devai.io/templates/star-rating.git`
 
-## Run it
-
-**The easy way:** double-click `index.html`. It opens in your browser and works.
-There is nothing to install and no build step.
+Double-click `index.html` — it opens in your browser and works. Nothing to
+install, no build step.
 
 Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-There are two different "current values" at play. While your mouse hovers, the stars
-show a _preview_ — but nothing is decided yet. The moment you click (or press an
-arrow key), that becomes the _committed_ value. When the pointer leaves, we simply
-repaint the committed value and the preview disappears:
+## How it works
 
-```js
-star.onmouseenter = () => paint(value); // preview
-star.onclick = () => commit(value); // commit
-row.onmouseleave = () => paint(selected); // back to committed
-```
+There's one drawing function, `paint(value)`, which fills the first `value`
+stars. Two different things call it:
 
-One `paint()` function draws whatever number you hand it; everything else just
-decides which number that is.
+- **Hover** calls `paint()` directly — a preview. Nothing is saved.
+- **Click** calls `commit()`, which stores the rating in `selected`, saves it to
+  `localStorage`, updates the text, and then paints.
 
-## How the code works
+When the pointer leaves the row, `paint(selected)` snaps back to the committed
+value. On load, the saved rating is read back from `localStorage`.
 
-- **`paint(value)`** toggles an `on` class on each star up to `value`. It's the only
-  code that touches the display, so preview and commit look identical.
-- **`commit(value)`** stores the choice in `selected`, writes it to `localStorage`,
-  updates the text, and repaints.
-- **`mouseenter` / `mouseleave`** drive the hover preview and the snap-back.
-- **`keydown`** on the row lets the arrow keys raise or lower the rating and moves
-  focus to the matching star — real `<button>`s already handle Tab and Enter.
-- **`localStorage.getItem("rating")`** on load restores your last rating (it's stored
-  as text, so `Number(...)` converts it back).
+Each star is a real `<button>` with an `aria-label` ("Rate 3 stars"), so Tab,
+Enter and Space work for free; the arrow keys move the rating up and down. The
+result line is a `role="status"` region, so screen readers announce it.
 
-## Try changing something
+Try it: show a word per score ("Terrible" … "Great"), add a "Clear" button
+that calls `localStorage.removeItem("rating")`, or support half stars.
 
-- Add half-stars by tracking which half of a star the pointer is over.
-- Show a word for each score: "Terrible" … "Great" under the stars.
-- Add a "Clear" button that removes the saved rating with `localStorage.removeItem`.
-
-## Files
+## Layout
 
 ```
-index.html      the five star buttons and the output line
-styles.css      how it looks, including the filled "on" state (light + dark)
-app.js          hover preview, click/keyboard commit, and localStorage
-Dockerfile      optional: serve it with nginx
-compose.yaml    optional: docker compose up --build
+index.html   five star buttons and the result line
+app.js       paint(), commit(), hover, click and arrow-key handlers
+styles.css   the stars' off / on look; follows light or dark mode
 ```
 
 ## Deploy
@@ -77,4 +55,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
-JavaScript, one concept at a time.
+JavaScript, one concept at a time. Next up:
+[char-counter](https://git.devai.io/templates/char-counter).

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-// Tiny markdown renderer: headings, paragraphs, code fences, lists, blockquotes,
-// bold/italic/inline code/links. Enough for blog posts, zero dependencies.
+// Builds React elements, never an HTML string, and only web/mail links become <a>.
+const SAFE_HREF = /^(https?:|mailto:|\/|#)/i;
 
 function inline(text: string, keyBase: string): ReactNode[] {
   const out: ReactNode[] = [];
@@ -16,12 +16,13 @@ function inline(text: string, keyBase: string): ReactNode[] {
     if (m[1]) out.push(<code key={key}>{m[1].slice(1, -1)}</code>);
     else if (m[2]) out.push(<strong key={key}>{m[2].slice(2, -2)}</strong>);
     else if (m[3]) out.push(<em key={key}>{m[3].slice(1, -1)}</em>);
-    else if (m[4])
+    else if (m[4] && SAFE_HREF.test(m[6]))
       out.push(
         <a key={key} href={m[6]} target="_blank" rel="noreferrer">
           {m[5]}
         </a>,
       );
+    else if (m[4]) out.push(m[5]);
     last = re.lastIndex;
   }
   if (last < text.length) out.push(text.slice(last));

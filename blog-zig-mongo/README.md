@@ -1,108 +1,91 @@
 # blog-zig-mongo
 
-A minimalist blog engine in Zig 0.16 on `std.http.Server`, backed by MongoDB
-through the official C driver (**libmongoc**) via `@cImport` — no Zig wrapper
-dependency, the C API is used directly. Argon2id password hashing from
-`std.crypto.pwhash` and a small self-contained HS256 JWT implementation.
-One thread per connection, an arena per request.
+The blog engine API in Zig 0.16 on MongoDB: `std.http.Server` with a thread
+per connection and an arena per request, the official C driver (libmongoc)
+used directly through `@cImport`, argon2id from `std.crypto.pwhash`, and a
+hand-rolled HS256 JWT. No web framework, no Zig dependencies.
 
-## Requirements
+## Run
 
-- Zig **0.16.0** (the `std.Io` interface era; older std.http APIs will not compile)
-- **mongo-c-driver 1.x** (system requirement — headers + libs, found via
-  pkg-config as `libmongoc-1.0`):
-  - Debian/Ubuntu: `apt install libmongoc-dev`
-  - Fedora: `dnf install mongo-c-driver-devel`
-  - macOS: `brew install mongo-c-driver@1`
-  - Nix: `nix-shell -p mongoc pkg-config`
+    git clone https://git.devai.io/templates/blog-zig-mongo.git
+    cd blog-zig-mongo
+    docker compose up --build
 
-  mongo-c-driver 2.x renamed the pkg-config modules (`mongoc2`/`bson2`); if
-  that's what your system ships, adjust the two `linkSystemLibrary` names in
-  `build.zig`.
-- MongoDB 6+ (or just Docker)
+The API answers on http://localhost:8080 (`curl localhost:8080/health` → `ok`).
+MongoDB keeps its state in `./data/mongo`; the unique indexes on `users.email`
+and `posts.slug` are ensured on every start, so there is no migrate step.
 
-## Quickstart
+Without Docker you need Zig 0.16.0 and libmongoc 1.x with pkg-config
+(Debian/Ubuntu: `apt install libmongoc-dev pkg-config`). Point `MONGO_URL` at
+a MongoDB, export the variables from `.env.example`, then `zig build run`.
+
+## How it works
+
+| Method | Path             | Auth | Result                                                   |
+|--------|------------------|------|----------------------------------------------------------|
+| GET    | `/health`        | —    | `200 ok`                                                 |
+| POST   | `/auth/register` | —    | `{email, password}` → `201 {id, email}`, `409` if taken  |
+| POST   | `/auth/login`    | —    | `{email, password}` → `200 {token}`, `401` if wrong      |
+| GET    | `/posts`         | —    | `200 [{id, title, slug, excerpt, published_at}]`, published only |
+| GET    | `/posts/{slug}`  | —    | `200` full published post, or `404`                      |
+| POST   | `/posts`         | JWT  | `{title, body}` → `201` full post (a draft)              |
+| PUT    | `/posts/{id}`    | JWT  | `{title?, body?, published?}` → `200` full post          |
+| DELETE | `/posts/{id}`    | JWT  | `204`                                                    |
+
+- **Auth** — register stores an argon2id hash (OWASP parameters, passwords of
+  8+ characters); login returns an HS256 JWT signed with `AUTH_SECRET`
+  (`sub` = user id, 7-day expiry). Send it as `Authorization: Bearer <token>`.
+  `src/jwt.zig` rejects any `alg` but HS256, compares signatures in constant
+  time and enforces `exp`.
+- **Ownership** — only a post's author may update or delete it; anyone else
+  gets `403`.
+- **Slugs** come from the title (`"Hello, World!"` → `hello-world`); a
+  duplicate title gets `-2`, `-3`, … Retitling a post regenerates its slug.
+- **Drafts** — new posts are unpublished; `PUT {"published": true}` publishes.
+  Public endpoints only return published posts. `excerpt` is the first 200
+  characters (codepoints, never a split UTF-8 sequence) of the body;
+  `published_at` is the post's creation time. Timestamps are stored as BSON
+  dates and returned as RFC 3339 strings in UTC.
+- **Ids** are MongoDB ObjectIds as 24-character hex strings.
+- **Errors** are `{"error": "message"}` with a matching status code.
+
+A full round trip:
 
 ```sh
-cp .env.example .env             # then edit AUTH_SECRET
-docker compose up --build        # app on :8080, mongo on :27017
+curl -s localhost:8080/auth/register -d '{"email":"me@example.com","password":"sup3rsecret"}'
+TOKEN=$(curl -s localhost:8080/auth/login -d '{"email":"me@example.com","password":"sup3rsecret"}' | jq -r .token)
+ID=$(curl -s localhost:8080/posts -H "Authorization: Bearer $TOKEN" -d '{"title":"Hello, World!","body":"First post."}' | jq -r .id)
+curl -s -X PUT localhost:8080/posts/$ID -H "Authorization: Bearer $TOKEN" -d '{"published":true}'
+curl -s localhost:8080/posts/hello-world
 ```
 
-Or locally against your own MongoDB:
-
-```sh
-export MONGO_URL=mongodb://localhost:27017
-export MONGO_DB=blog
-export AUTH_SECRET=$(head -c 32 /dev/urandom | base64)
-zig build run
-```
-
-Unique indexes (`users.email`, `posts.slug`) are created on startup.
-
-```sh
-curl -s localhost:8080/health
-curl -s localhost:8080/auth/register -d '{"email":"me@example.com","password":"hunter2hunter2"}'
-TOKEN=$(curl -s localhost:8080/auth/login -d '{"email":"me@example.com","password":"hunter2hunter2"}' | sed 's/.*"token":"\([^"]*\)".*/\1/')
-curl -s localhost:8080/posts -H "Authorization: Bearer $TOKEN" -d '{"title":"Hello Zig","body":"First post."}'
-# grab the returned id, then:
-curl -s -X PUT localhost:8080/posts/<id> -H "Authorization: Bearer $TOKEN" -d '{"published":true}'
-curl -s localhost:8080/posts
-curl -s localhost:8080/posts/hello-zig
-```
-
-## API
+## Layout
 
 ```
-GET    /health              -> 200 "ok"
-POST   /auth/register       {email, password} -> 201 {id, email}
-POST   /auth/login          {email, password} -> 200 {token}
-GET    /posts               -> 200 [{id,title,slug,excerpt,published_at}]  (published only)
-GET    /posts/{slug}        -> 200 full post | 404                         (published only)
-POST   /posts        (auth) -> 201 {title, body}   (created unpublished)
-PUT    /posts/{id}   (auth) -> 200 {title?, body?, published?}
-DELETE /posts/{id}   (auth) -> 204
+build.zig        links libc + libmongoc/libbson (pkg-config)
+src/main.zig     config, listener, one thread per connection, routing
+src/web.zig      JSON in/out, body limit, bearer token, clock
+src/auth.zig     register/login, argon2id, requireAuth
+src/jwt.zig      HS256 sign/verify on std.crypto
+src/posts.zig    post handlers, slugs, excerpts, ownership checks
+src/db.zig       libmongoc via @cImport: pooled clients, indexes, BSON <-> structs
+extras/          drop-in Clerk and Auth0 verifiers, each with swap steps
 ```
 
-Errors are always `{"error":"message"}` with a matching status code.
-Ids are ObjectId hex strings. Timestamps (`published_at`, `created_at`,
-`updated_at`) are unix seconds. `excerpt` is the first 200 characters of the
-body (UTF-8 aware). Slugs are derived from the title once at creation and never
-change; creating a second post with a colliding slug is a 409. Update and
-delete are restricted to the post's author.
+`build.zig.zon` lists no dependencies — libmongoc comes from the system (the
+Dockerfile installs Debian's `libmongoc-dev`, and the runtime image only its
+shared library). Local auth lives in `src/auth.zig` + `src/jwt.zig`;
+`extras/auth-clerk/` and `extras/auth-auth0/` each hold one JWKS-based RS256
+verifier (std only) and a README with the exact steps.
 
-## Project layout
+## Deploy
 
-```
-build.zig, build.zig.zon   zig build config; links system libmongoc, no Zig deps
-src/main.zig               config, listener, per-connection threads, routing
-src/web.zig                JSON body/response helpers, bearer token, clock
-src/auth.zig               register/login handlers, argon2id, requireAuth
-src/posts.zig              post CRUD handlers, slugify, excerpt
-src/jwt.zig                HS256 sign/verify (std.crypto only, ~100 lines)
-src/db.zig                 libmongoc via @cImport: pool, collections, BSON glue
-extras/                    drop-in verifiers for Clerk and Auth0
-```
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
 
-## How auth works
-
-`POST /auth/register` stores the argon2id hash (OWASP parameters) of the
-password in the `users` collection. `POST /auth/login` verifies it and returns
-a JWT signed with HS256 over `AUTH_SECRET`, `sub` = user ObjectId hex, 7-day
-expiry. Protected handlers call `auth.requireAuth`, which checks the
-`Authorization: Bearer` header. `src/jwt.zig` rejects any token whose header is
-not exactly the HS256 header it issues, so algorithm-confusion tricks don't
-apply.
-
-## Switching to Clerk or Auth0
-
-See `extras/auth-clerk/` and `extras/auth-auth0/`. Each contains a single
-verifier file and a README describing exactly what to delete (local users,
-`src/jwt.zig`, the `/auth` routes) and what to replace (`requireAuth`).
-
-## Notes
-
-- User-supplied values are always appended with `bson_append_*` (never
-  interpolated into JSON), so there is no injection surface; `bson_new_from_json`
-  is only used for static command/option documents.
-- `zig build -Doptimize=ReleaseSafe` for production binaries (the Dockerfile
-  does this).
+---
+Part of [devai.io](https://devai.io) — the blog engine series: one API
+contract, eight backends (`blog-{go,rust,zig,python}-{postgres,mongo}`) and
+the `blog-react`, `blog-angular`, `blog-dart` and `blog-flutter` frontends.

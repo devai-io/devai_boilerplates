@@ -1,8 +1,3 @@
-// Drop-in Clerk authentication for the blog API.
-//
-// Replaces the local email/password + HS256 setup with verification of Clerk
-// session JWTs (RS256, public keys fetched from your instance's JWKS
-// endpoint). See README.md in this directory for the swap instructions.
 package clerkauth
 
 import (
@@ -15,6 +10,7 @@ import (
 	"math/big"
 	"net/http"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -31,12 +27,17 @@ func userID(r *http.Request) string {
 	return v
 }
 
-// newClerkAuth reads CLERK_ISSUER (e.g. https://your-app.clerk.accounts.dev)
+// newClerkAuth reads CLERK_ISSUER (your Frontend API URL) and the optional
+// CLERK_AUTHORIZED_PARTIES (comma-separated origins allowed in the azp claim)
 // and returns a middleware that validates Clerk session JWTs.
 func newClerkAuth() func(http.HandlerFunc) http.HandlerFunc {
 	issuer := strings.TrimSuffix(os.Getenv("CLERK_ISSUER"), "/")
 	if issuer == "" {
 		log.Fatal("CLERK_ISSUER must be set")
+	}
+	var parties []string
+	if v := os.Getenv("CLERK_AUTHORIZED_PARTIES"); v != "" {
+		parties = strings.Split(v, ",")
 	}
 	keys := &jwksCache{url: issuer + "/.well-known/jwks.json"}
 	return func(next http.HandlerFunc) http.HandlerFunc {
@@ -46,15 +47,22 @@ func newClerkAuth() func(http.HandlerFunc) http.HandlerFunc {
 				writeAuthErr(w, "missing bearer token")
 				return
 			}
+			// Clerk session tokens live for 60s, so allow a little clock skew.
 			token, err := jwt.Parse(raw, keys.keyfunc,
 				jwt.WithValidMethods([]string{"RS256"}),
 				jwt.WithIssuer(issuer),
-				jwt.WithExpirationRequired())
+				jwt.WithExpirationRequired(),
+				jwt.WithLeeway(5*time.Second))
 			if err != nil {
 				writeAuthErr(w, "invalid or expired token")
 				return
 			}
-			sub, err := token.Claims.GetSubject()
+			claims := token.Claims.(jwt.MapClaims)
+			if azp, _ := claims["azp"].(string); parties != nil && !slices.Contains(parties, azp) {
+				writeAuthErr(w, "token issued for an unknown origin")
+				return
+			}
+			sub, err := claims.GetSubject()
 			if err != nil || sub == "" {
 				writeAuthErr(w, "invalid token subject")
 				return
@@ -72,7 +80,7 @@ func writeAuthErr(w http.ResponseWriter, msg string) {
 
 // jwksCache fetches and caches the RSA public keys published at a JWKS URL,
 // refetching (at most once a minute) when an unknown key id shows up —
-// Clerk rotates keys rarely, but it does rotate them.
+// that is how a key rotation reaches the API without a restart.
 type jwksCache struct {
 	url string
 
@@ -94,6 +102,7 @@ func (c *jwksCache) keyfunc(t *jwt.Token) (any, error) {
 	if time.Since(c.fetched) < time.Minute {
 		return nil, fmt.Errorf("unknown key id %q", kid)
 	}
+	c.fetched = time.Now() // failed fetches are rate-limited too
 	if err := c.refresh(); err != nil {
 		return nil, err
 	}
@@ -143,6 +152,6 @@ func (c *jwksCache) refresh() error {
 			E: int(new(big.Int).SetBytes(e).Int64()),
 		}
 	}
-	c.keys, c.fetched = keys, time.Now()
+	c.keys = keys
 	return nil
 }

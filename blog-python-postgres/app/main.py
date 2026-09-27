@@ -1,5 +1,3 @@
-"""App wiring: lifespan, routers, health check, JSON error shape."""
-
 import os
 from contextlib import asynccontextmanager
 
@@ -13,9 +11,7 @@ from . import auth, db, posts
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.pool = await db.create_pool(
-        os.environ.get("DATABASE_URL", "postgresql://blog:blog@localhost:5432/blog")
-    )
+    app.state.pool = await db.create_pool(os.environ["DATABASE_URL"])
     yield
     await app.state.pool.close()
 
@@ -30,7 +26,7 @@ async def health() -> str:
     return "ok"
 
 
-# Every error leaves as {"error": "message"} — including framework-raised ones.
+# Every error leaves as {"error": "message"}, including framework-raised ones.
 @app.exception_handler(StarletteHTTPException)
 async def http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
     return JSONResponse({"error": str(exc.detail)}, status_code=exc.status_code)

@@ -1,47 +1,39 @@
-// Character Counter — live feedback as you type, with a progress ring.
-// Concepts: reacting to every "input" event, mapping one number (the length)
-// onto a color, and mapping that same number onto a visual (an SVG ring).
+const LIMIT = 280;
 
-const LIMIT = 280; // the tweet-style cap
-
-// 1) Grab the elements we need.
 const textarea = document.getElementById("text");
 const remaining = document.getElementById("remaining");
 const postBtn = document.getElementById("post");
 const ring = document.getElementById("ringProgress");
 const status = document.getElementById("status");
 
-// 2) A circle's outline is 2 * pi * r long. We draw a partial ring by hiding part
-//    of that outline with stroke-dashoffset: full offset = empty, zero = complete.
-//    So the whole trick is picking the right offset for the current length.
-const radius = ring.r.baseVal.value; // read r="18" straight off the SVG circle
-const circumference = 2 * Math.PI * radius;
+// A circle's outline is 2πr long. Dash it into one dash that long, then slide
+// it with stroke-dashoffset: offset = full length shows nothing, 0 shows the
+// whole ring. So the ring is just "how much of the length to hide".
+const circumference = 2 * Math.PI * ring.r.baseVal.value;
 ring.style.strokeDasharray = String(circumference);
 
-// 3) Recalculate everything from the current text. One function, called on every edit.
+// Everything on screen is derived from ONE number — the text length — and
+// update() recomputes all of it on every keystroke.
 function update() {
   const used = textarea.value.length;
   const left = LIMIT - used;
+  const warn = left <= 20 && left >= 0;
+  const over = left < 0;
 
-  // The remaining count, colored by how close (or past) the limit we are.
   remaining.textContent = String(left);
-  remaining.classList.toggle("warn", left <= 20 && left >= 0); // getting close
-  remaining.classList.toggle("over", left < 0); // gone too far
+  remaining.classList.toggle("warn", warn);
+  remaining.classList.toggle("over", over);
+  postBtn.disabled = over;
 
-  // Over the limit? Block posting so a too-long message can't be sent.
-  postBtn.disabled = left < 0;
-
-  // Map the length onto the ring: fill from 0 to 1 (capped), then match the color.
   const fraction = Math.min(used / LIMIT, 1);
   ring.style.strokeDashoffset = String(circumference * (1 - fraction));
-  ring.classList.toggle("warn", left <= 20 && left >= 0);
-  ring.classList.toggle("over", left < 0);
+  ring.classList.toggle("warn", warn);
+  ring.classList.toggle("over", over);
 }
 
-// 4) Fire on EVERY change — typing, pasting, or deleting all count as "input".
+// "input" fires for typing, pasting, deleting and dictation alike.
 textarea.addEventListener("input", update);
 
-// 5) Nothing really posts here; just show it worked, clear the box, and reset.
 postBtn.addEventListener("click", () => {
   status.textContent = "Posted! ✓";
   textarea.value = "";
@@ -49,4 +41,4 @@ postBtn.addEventListener("click", () => {
   setTimeout(() => (status.textContent = ""), 1500);
 });
 
-update(); // set the starting state: 280 remaining, empty ring
+update();

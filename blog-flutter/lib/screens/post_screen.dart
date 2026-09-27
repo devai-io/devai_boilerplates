@@ -27,18 +27,30 @@ class _PostScreenState extends State<PostScreen> {
 
   Future<void> _load() async {
     try {
-      final post = await widget.api.getPost(widget.slug);
-      if (mounted) setState(() => _post = post);
+      final post = await widget.api.getPost(_post?.slug ?? widget.slug);
+      if (mounted) {
+        setState(() {
+          _post = post;
+          _error = null;
+        });
+      }
     } catch (e) {
       if (mounted) setState(() => _error = '$e');
     }
   }
 
   Future<void> _edit() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute<void>(builder: (_) => EditorScreen(api: widget.api, post: _post)),
+    final saved = await Navigator.of(context).push(
+      MaterialPageRoute<Post>(
+        builder: (_) => EditorScreen(api: widget.api, post: _post),
+      ),
     );
-    _load();
+    // The editor pops the saved post (the slug follows the title); backing out re-fetches.
+    if (saved == null) {
+      _load();
+    } else if (mounted) {
+      setState(() => _post = saved);
+    }
   }
 
   Future<void> _delete() async {
@@ -50,9 +62,13 @@ class _PostScreenState extends State<PostScreen> {
         title: const Text('Delete this post?'),
         actions: [
           TextButton(
-              onPressed: () => Navigator.of(context).pop(false), child: const Text('Cancel')),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
           FilledButton(
-              onPressed: () => Navigator.of(context).pop(true), child: const Text('Delete')),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -78,33 +94,41 @@ class _PostScreenState extends State<PostScreen> {
           if (widget.api.authed && post != null) ...[
             IconButton(tooltip: 'Edit', icon: const Icon(Icons.edit_outlined), onPressed: _edit),
             IconButton(
-                tooltip: 'Delete', icon: const Icon(Icons.delete_outline), onPressed: _delete),
+              tooltip: 'Delete',
+              icon: const Icon(Icons.delete_outline),
+              onPressed: _delete,
+            ),
           ],
         ],
       ),
       body: _error != null
-          ? Center(child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)))
+          ? Center(
+              child: Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+            )
           : post == null
-              ? const Center(child: CircularProgressIndicator())
-              : SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        formatDate(post.createdAt),
-                        style: theme.textTheme.labelSmall!.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant, letterSpacing: 1),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(post.title,
-                          style: theme.textTheme.headlineMedium!
-                              .copyWith(fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 16),
-                      MarkdownBody(source: post.body),
-                    ],
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    formatDate(post.createdAt),
+                    style: theme.textTheme.labelSmall!.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      letterSpacing: 1,
+                    ),
                   ),
-                ),
+                  const SizedBox(height: 6),
+                  Text(
+                    post.title,
+                    style: theme.textTheme.headlineMedium!.copyWith(fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+                  MarkdownBody(source: post.body),
+                ],
+              ),
+            ),
     );
   }
 }

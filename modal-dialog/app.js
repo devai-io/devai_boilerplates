@@ -1,34 +1,30 @@
-// Modal Dialog — the modern, accessible way to show an overlay.
-// Concept: the native <dialog> element. showModal() dims the page, traps keyboard
-// focus inside the box, and wires up the Escape key — all for free, no library.
-
-// 1) Grab the dialog and the buttons that open or close it.
 const dialog = document.getElementById("dialog");
 const openBtn = document.getElementById("open");
 const closeBtn = document.getElementById("close");
 const okBtn = document.getElementById("ok");
 const status = document.getElementById("status");
 
-// 2) Open it as a *modal*: everything behind it becomes inert and a backdrop appears.
-//    (There's also dialog.show() for a non-modal pop-up, but modal is what we want.)
-openBtn.addEventListener("click", () => dialog.showModal());
+// showModal() is the whole trick: the browser dims the page behind a
+// ::backdrop, makes it inert, moves focus into the dialog, closes it on Escape,
+// and hands focus back to this button afterwards. No library needed.
+openBtn.addEventListener("click", () => {
+  dialog.returnValue = ""; // forget why it closed last time
+  dialog.showModal();
+});
 
-// 3) Two ways to close on purpose. close() can carry a value describing *why* it
-//    closed — handy for knowing which button the user pressed.
+// close(value) records WHY it closed in dialog.returnValue.
 closeBtn.addEventListener("click", () => dialog.close("dismissed"));
 okBtn.addEventListener("click", () => dialog.close("ok"));
 
-// 4) Click-outside-to-close. A modal's clickable area covers the whole screen, so a
-//    click on the dark backdrop actually lands on the <dialog> element itself. If the
-//    thing clicked IS the dialog (not the content inside it), close. This works
-//    because the content lives in an inner wrapper that fills the visible box.
+// A click on the dimmed backdrop lands on the <dialog> element itself; clicks
+// on the content land on its children. The dialog has no padding and the inner
+// .dialog-body fills it, so "target is the dialog" means "outside the box".
 dialog.addEventListener("click", (event) => {
   if (event.target === dialog) dialog.close("backdrop");
 });
 
-// 5) The "close" event fires however it closed — button, backdrop, or Escape.
-//    Escape sets no return value, so an empty returnValue tells us the user bailed.
+// "close" fires however it closed. Escape sets no returnValue, so an empty
+// one means the user pressed Escape.
 dialog.addEventListener("close", () => {
-  const reason = dialog.returnValue || "escape";
-  status.textContent = `The dialog is closed (${reason}).`;
+  status.textContent = `The dialog is closed (${dialog.returnValue || "escape"}).`;
 });

@@ -1,7 +1,5 @@
-/* A small, self-contained stylesheet. No frameworks, no build step.
-   Colors adapt to the visitor's light/dark preference automatically. */
-
 :root {
+  color-scheme: light dark;
   --accent: #06b6d4;
   --bg: #0b0c0e;
   --surface: #14161a;
@@ -107,15 +105,18 @@ h1 {
   transform: rotate(45deg);
 }
 
-/* The answer is collapsed by default. Animating max-height slides it open. */
+/* Collapsed by default. max-height animates the slide; visibility hides the
+   closed answer from screen readers too, and waits for the slide to finish. */
 .answer {
   max-height: 0;
   overflow: hidden;
-  transition: max-height 0.3s ease;
+  visibility: hidden;
+  transition: max-height 0.3s ease, visibility 0.3s;
 }
 
 .item.open .answer {
   max-height: 200px;
+  visibility: visible;
 }
 
 .answer p {

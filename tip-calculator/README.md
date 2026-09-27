@@ -1,65 +1,48 @@
 # tip-calculator
 
-> A working tip calculator in one HTML file, one CSS file, and 30 lines of JavaScript.
+A working tip calculator in one HTML file, one CSS file and about 30 lines
+of JavaScript. Type a bill, drag the tip slider, split it between friends — and
+learn the pattern behind almost every web page: read the inputs, do the math,
+write the answer back.
 
-**What you'll build:** a little app where you type a bill amount, drag a slider to
-pick a tip percentage, say how many people are splitting it, and instantly see the
-tip and the total each person owes.
+## Run
 
-**What you'll learn:** the single most important pattern in web pages —
-_read the inputs → do some math → write the answer back onto the screen_ — and how
-to make it happen automatically every time something changes.
+Get it: `git clone https://git.devai.io/templates/tip-calculator.git`
 
-## Run it
-
-**The easy way:** double-click `index.html`. It opens in your browser and works.
-There is nothing to install and no build step.
+Double-click `index.html` — it opens in your browser and works. Nothing to
+install, no build step.
 
 Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-A web page is just text (HTML) with styling (CSS). JavaScript is what makes it
-_react_. Here the whole app is one function, `calculate()`, that:
+## How it works
 
-1. reads the three input boxes,
-2. multiplies to get the tip and divides to get the per-person total,
-3. drops those numbers back into the page.
+The whole app is one function, `calculate()`: it reads the three inputs, works
+out the tip and the per-person total, and writes both back onto the page. One
+line makes it live:
 
-We tell the browser: "run `calculate()` every time any input changes." That's it.
-There is no framework and no magic.
+```js
+el.addEventListener("input", calculate);
+```
 
-## How the code works
+"Whenever this input changes, run `calculate`." Everything else is plain
+JavaScript: `getElementById` finds an element, `parseFloat` turns typed text
+into a number, and the built-in `Intl.NumberFormat` turns `19.5` into `$19.50`.
 
-- **`index.html`** lays out the boxes. Each input has an `id` (like `id="bill"`) so
-  JavaScript can find it.
-- **`app.js`** does three things:
-  - `document.getElementById("bill")` grabs an element by its id.
-  - `parseFloat(...)` turns the text you typed into a number we can do math with.
-  - `Intl.NumberFormat` is a built-in that formats `19.5` as `$19.50` for us.
-  - `addEventListener("input", calculate)` is the key line — "whenever this box
-    changes, run `calculate`."
-- **`styles.css`** is plain CSS. The `@media (prefers-color-scheme: light)` block
-  swaps the colors if the visitor's device is in light mode.
+Try it: swap `"USD"` for `"EUR"` (and `"en-US"` for `"de-DE"`), add a
+"round up" checkbox, or raise the slider's `max="30"` for generous tippers.
 
-## Try changing something
-
-- Change the currency: swap `"USD"` for `"EUR"` (and `"en-US"` for `"de-DE"`).
-- Add a "round up to the nearest dollar" checkbox.
-- Change the slider's `max="30"` to `max="50"` for the generous tippers.
-
-## Files
+## Layout
 
 ```
-index.html      the boxes and labels
-styles.css      how it looks (light + dark)
-app.js          the 30 lines that make it work
-Dockerfile      optional: serve it with nginx
-compose.yaml    optional: docker compose up --build
+index.html   the inputs — each has an id so JavaScript can find it
+app.js       calculate() and the listeners that run it
+styles.css   the look; follows your system's light or dark mode
 ```
 
 ## Deploy
@@ -71,4 +54,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
-JavaScript, one concept at a time.
+JavaScript, one concept at a time. Next up:
+[todo-list](https://git.devai.io/templates/todo-list).

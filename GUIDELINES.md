@@ -2,7 +2,9 @@
 
 Internal guidelines. Read fully before creating or editing any project here.
 Every folder is packaged verbatim into a downloadable zip and a browsable code
-preview on devai.io — the tree you write IS the product.
+preview on devai.io, and published as its own public repo at
+`https://git.devai.io/templates/<folder>` (see `scripts/publish.sh`) — the tree
+you write IS the product, and it must stand alone as a repo root.
 
 ## The idea
 
@@ -21,9 +23,13 @@ larger fleet — learn one, and you already know your way around all of them.
 README.md                   fixed skeleton (below)
 compose.yaml                `docker compose up --build` runs the whole thing
 Dockerfile                  multi-stage where there is a build step
+.dockerignore               whenever the Dockerfile copies the build context
 .env.example                only if the app reads config; one commented line per var
 .gitignore                  always; includes data/ and .env where relevant
 .github/workflows/ci.yml    the CI/CD example: test → publish → deploy
+LICENSE                     MIT, identical in every project
+<lockfile>                  the ecosystem's own: go.sum, Cargo.lock, uv.lock,
+                            package-lock.json, pubspec.lock, flake.lock
 ```
 
 Exceptions (the only ones):
@@ -31,9 +37,46 @@ Exceptions (the only ones):
 - `nixos-*` — flakes, not containers. No Dockerfile/compose; CI runs `nix flake check`.
 - `blog-flutter` — a device app. No Dockerfile/compose; CI runs `flutter analyze`.
 
-Never include: lockfiles, vendored deps, build artifacts, binaries, TODOs,
-placeholder bodies, admin UIs (no Adminer, no mongo-express), or claims in a
-README that aren't true of the tree it sits in.
+Never include: vendored deps, build artifacts, binaries, TODOs, placeholder
+bodies, admin UIs (no Adminer, no mongo-express), or claims in a README that
+aren't true of the tree it sits in.
+
+Always include the lockfile, and build from it (`npm ci`, `cargo build
+--locked`, `uv sync --locked`, `go mod download` against `go.sum` — never
+`go mod tidy` or `npm install` inside a Dockerfile). A template has to build
+the same next year as it does today.
+
+## Images & toolchains
+
+Pinned to a major (or major.minor) that gets security patches, refreshed
+together across the whole library — never one project at a time:
+
+| Role | Image |
+|---|---|
+| Go build / run | `golang:1.26-alpine` → `gcr.io/distroless/static-debian13:nonroot` |
+| Rust build / run | `rust:1.98-slim-trixie` → `debian:trixie-slim` (or distroless `cc-debian13`) |
+| Python | `python:3.14-slim` + `uv` copied from `ghcr.io/astral-sh/uv:latest` |
+| Node build | `node:24-alpine` |
+| Static serve | `nginxinc/nginx-unprivileged:1.30-alpine` (non-root, listens on 8080) |
+| Zig | 0.16.0 tarball from ziglang.org, pinned by version |
+
+Runtime stages run as a non-root user. Static sites `COPY` their files
+explicitly (`COPY index.html styles.css app.js /usr/share/nginx/html/`) — never
+`COPY .`, which would serve the README, Dockerfile and workflow to the world.
+A static Dockerfile is therefore three lines:
+
+```dockerfile
+FROM nginxinc/nginx-unprivileged:1.30-alpine
+COPY index.html styles.css app.js /usr/share/nginx/html/
+EXPOSE 8080
+```
+
+SPA builds add a `default.conf` with `listen 8080;` and
+`try_files $uri $uri/ /index.html;`.
+
+`.dockerignore` always lists `data` (after the first `docker compose up` the
+database owns `./data/*` and an unreadable build context fails the next
+`--build`), `.git`, `.github`, `.env`, and the stack's build outputs.
 
 ## Comments
 
@@ -46,8 +89,8 @@ decision isn't obvious from the code. No file headers, no section banners.
 
 - Named `compose.yaml`. Never `docker-compose.yml`, never a `version:` key.
 - Services are named `app`, `db`, `cache` — nothing else, in that order.
-- `app`: `build: .`, published on **8080** (`"8080:8080"`, or `"8080:80"` for
-  nginx-served static builds). Dev env values inline, matching `.env.example`.
+- `app`: `build: .`, listening on **8080** inside the container and published
+  as `"8080:8080"` — static builds too (the unprivileged nginx image listens on 8080). Dev env values inline, matching `.env.example`.
   A frontend that pairs with an API from the same series publishes **8081**
   instead, so both halves run side by side.
 - `db` / `cache`: pinned image, **bind-mounted state under `./data/`**,
@@ -56,9 +99,13 @@ decision isn't obvious from the code. No file headers, no section banners.
 
 | Service  | Image              | State bind mount                        |
 |----------|--------------------|-----------------------------------------|
-| postgres | `postgres:16-alpine` | `./data/postgres:/var/lib/postgresql/data` |
-| mongo    | `mongo:7`          | `./data/mongo:/data/db`                 |
-| redis    | `redis:7-alpine`   | `./data/redis:/data`                    |
+| postgres | `postgres:18-alpine` | `./data/postgres:/var/lib/postgresql` |
+| mongo    | `mongo:8`          | `./data/mongo:/data/db`                 |
+| redis    | `redis:8-alpine`   | `./data/redis:/data`                    |
+
+Postgres 18 images keep data in a versioned subdirectory
+(`/var/lib/postgresql/18/docker`), so the mount point is `/var/lib/postgresql`
+— mounting `.../data` like older images makes the container refuse to start.
 
 Canonical shape (Postgres flavor):
 
@@ -77,13 +124,13 @@ services:
         condition: service_healthy
 
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: blog
       POSTGRES_PASSWORD: blog
       POSTGRES_DB: blog
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U blog -d blog"]
       interval: 5s
@@ -98,7 +145,7 @@ services:
   app:
     build: .
     ports:
-      - "8080:80"
+      - "8080:8080"
 ```
 
 ## Env names
@@ -136,7 +183,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: docker compose up -d --build
       - run: |
           timeout 60 sh -c 'until curl -fs localhost:8080/health; do sleep 2; done' \
@@ -150,7 +197,7 @@ jobs:
     permissions:
       packages: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
       - run: docker build -t "ghcr.io/${{ github.repository }}:latest" .
       - run: docker push "ghcr.io/${{ github.repository }}:latest"
@@ -164,7 +211,7 @@ jobs:
           install -m 600 /dev/null key && echo "${{ secrets.DEPLOY_KEY }}" > key
           ssh -i key -o StrictHostKeyChecking=accept-new \
             "${{ vars.DEPLOY_USER }}@${{ vars.DEPLOY_HOST }}" \
-            "cd /srv/blog-go-postgres && git pull && docker compose up -d --build"
+            "cd /srv/blog-go-postgres && git pull --ff-only && docker compose up -d --build"
 ```
 
 Deploy configuration lives in the user's repo settings: variables
@@ -186,6 +233,9 @@ omitted, never left empty.
     docker compose up --build
 
 <One line: what you see and where — usually http://localhost:8080.>
+
+<Get it: `git clone https://git.devai.io/templates/<project-name>.git` — a
+line above the run block, since the repo is how most people arrive.>
 
 <Optional: running without Docker, in a few lines.>
 
@@ -266,7 +316,10 @@ login, authoring form with publish toggle.
 1. Pick a kebab-case folder name that says what it is.
 2. Write the smallest complete implementation; follow every section above.
 3. `docker compose up --build` + curl it. Fix until boring.
-4. Add the project to the table in this repo's `README.md`.
+4. Add the project to the table in this repo's `README.md`, and copy
+   `LICENSE` into the folder.
 5. Register it on the site: one entry in `src/data/templates.ts` of
    `devai_io` (`codeDir` = the folder name), then push both repos —
    the site's CI clones this repo at build time.
+6. Push to `main`: the `publish` workflow splits every folder into its own
+   repo at `git.devai.io/templates/<folder>` (or run `scripts/publish.sh`).

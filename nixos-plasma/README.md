@@ -1,65 +1,69 @@
 # nixos-plasma
 
-A minimal-but-real NixOS desktop flake for KDE Plasma 6: SDDM (Wayland) login,
+A minimal-but-real NixOS 26.05 desktop flake for KDE Plasma 6: SDDM (Wayland) login,
 a lightly trimmed default app set, PipeWire audio, and a deliberately small
 home-manager config — Plasma manages its own settings well, so the flake stays
 out of its way.
 
-## Requirements
+## Run
 
-- A UEFI machine (or VM) with NixOS installed — the
-  [minimal ISO](https://nixos.org/download/) is enough
-- Flakes enabled during install: `nix --experimental-features 'nix-command flakes' ...`
-  (the config itself enables them permanently)
+On a UEFI machine (or VM) running NixOS — the [minimal ISO](https://nixos.org/download/)
+install is enough:
 
-## Install
+    sudo nix-shell -p git --run 'git clone https://git.devai.io/templates/nixos-plasma.git /etc/nixos-plasma'
+    cd /etc/nixos-plasma
+    # 1. Replace the stub hardware config with the one for THIS machine
+    sudo nixos-generate-config --show-hardware-config | sudo tee hosts/desktop/hardware-configuration.nix >/dev/null
+    # 2. Rename the user and host (below), then build and switch
+    sudo nixos-rebuild switch --flake .#desktop
 
-```sh
-git clone <this template> /etc/nixos-plasma && cd /etc/nixos-plasma
+Reboot into SDDM and log in as `user` with the initial password `changeme` — run
+`passwd` right away. `nixos-rebuild` turns flakes on for its own run; the config
+enables them permanently.
 
-# 1. Replace the stub hardware config with the one for THIS machine
-sudo nixos-generate-config --show-hardware-config > hosts/desktop/hardware-configuration.nix
+## How it works
 
-# 2. Rename the user and host (see below)
+`hosts/desktop/hardware-configuration.nix` is a **stub**: it only exists so the flake
+evaluates out of the box and will not boot real hardware. Step 1 above replaces it
+with the file generated for your disks and CPU — the one file that is yours, not the
+template's.
 
-# 3. Build and switch
-sudo nixos-rebuild switch --flake .#desktop
-```
-
-## Renaming user and host
-
-The placeholders are `user` and `desktop`. Change them in three places:
+The placeholders are `user` and `desktop`. Rename them in three places:
 
 - `flake.nix` — `home-manager.users.user` and (if you like) the
   `nixosConfigurations.desktop` attribute name
 - `hosts/desktop/configuration.nix` — `users.users.user` and `networking.hostName`
 - `home/user.nix` — `home.username`, `home.homeDirectory`, git identity
 
-The initial password is `changeme` — run `passwd` after first login.
-
-## Layout
-
-```
-flake.nix                          nixpkgs (unstable) + home-manager
-hosts/desktop/
-  configuration.nix                boot, network, SDDM + Plasma 6, audio, fonts, user
-  hardware-configuration.nix       STUB — replace via nixos-generate-config
-home/user.nix                      user packages + git identity
-```
-
-## Notes
+Notes:
 
 - Want declarative Plasma settings (panels, shortcuts, theme)? Add
   [plasma-manager](https://github.com/nix-community/plasma-manager) as a flake
   input later — this template intentionally leaves Plasma stock.
+- `flake.lock` pins nixpkgs and home-manager; `nix flake update` moves both to the
+  latest 26.05 commits. For the next release, change `nixos-26.05` and
+  `release-26.05` in `flake.nix` together.
 - `system.stateVersion` / `home.stateVersion` mark the release you first installed;
   leave them alone when upgrading.
 
-## CI
+## Layout
 
-The shipped workflow (`.github/workflows/ci.yml`) evaluates the flake with
-`nix flake check --no-build` on every push.
+    flake.nix                              nixpkgs nixos-26.05 + home-manager release-26.05
+    flake.lock                             the exact commits of both
+    hosts/desktop/configuration.nix        boot, network, SDDM + Plasma 6, excluded apps, audio, fonts, user
+    hosts/desktop/hardware-configuration.nix   STUB — replace via nixos-generate-config
+    home/user.nix                          user packages + git identity
+
+## Deploy
+
+`sudo nixos-rebuild switch --flake .#desktop` is the deploy: run it after every
+change. Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) evaluates the whole system on every push and pull
+request — `nix flake check` plus the system derivation, nothing is built — inside
+the official `nixos/nix` image.
 
 ---
-Part of [devai.io](https://devai.io) — the NixOS desktop series.
-Siblings: `nixos-{hyprland,gnome,plasma}`.
+Part of [devai.io](https://devai.io) — the NixOS desktop series:
+[`nixos-hyprland`](https://git.devai.io/templates/nixos-hyprland),
+[`nixos-gnome`](https://git.devai.io/templates/nixos-gnome),
+[`nixos-plasma`](https://git.devai.io/templates/nixos-plasma).

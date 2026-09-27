@@ -1,16 +1,17 @@
-# Build
-FROM rust:1-slim-trixie AS builder
+FROM rust:1.98-slim-trixie AS build
 WORKDIR /app
-COPY Cargo.toml schema.sql ./
+# Build the dependencies against a dummy main first, so this layer stays
+# cached until Cargo.toml or Cargo.lock change.
+COPY Cargo.toml Cargo.lock ./
+RUN mkdir src && echo 'fn main() {}' > src/main.rs \
+ && cargo build --release --locked \
+ && rm -rf src
+COPY schema.sql ./
 COPY src ./src
-RUN cargo build --release
+RUN touch src/main.rs && cargo build --release --locked
 
-# Run
-FROM debian:trixie-slim
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends ca-certificates curl \
-    && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /app/target/release/blog-rust-postgres /usr/local/bin/blog
+FROM gcr.io/distroless/cc-debian13:nonroot
+COPY --from=build /app/target/release/blog-rust-postgres /usr/local/bin/blog
 ENV PORT=8080
 EXPOSE 8080
 CMD ["blog"]

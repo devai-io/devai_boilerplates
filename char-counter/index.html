@@ -16,18 +16,18 @@
         id="text"
         class="textarea"
         rows="4"
+        aria-describedby="remaining"
         placeholder="Say something in 280 characters…"
       ></textarea>
 
       <div class="footer">
         <div class="meter">
-          <!-- Inline SVG ring. The second circle's stroke gets "unrolled" by JS
-               to show how full the message is. aria-hidden: the number says it too. -->
+          <!-- JS "unrolls" the second circle's stroke to show how full the message is. -->
           <svg class="ring" width="44" height="44" viewBox="0 0 44 44" aria-hidden="true">
             <circle class="ring-track" cx="22" cy="22" r="18" />
             <circle id="ringProgress" class="ring-progress" cx="22" cy="22" r="18" />
           </svg>
-          <span id="remaining" class="remaining" role="status" aria-live="polite">280</span>
+          <span id="remaining" class="remaining">280</span>
         </div>
         <button id="post" class="btn" type="button">Post</button>
       </div>

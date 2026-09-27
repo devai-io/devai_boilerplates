@@ -1,5 +1,3 @@
-"""App wiring: lifespan, routers, health check, JSON error shape."""
-
 import os
 from contextlib import asynccontextmanager
 
@@ -13,12 +11,9 @@ from . import auth, db, posts
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    app.state.client, app.state.db = await db.connect(
-        os.environ.get("MONGO_URL", "mongodb://localhost:27017"),
-        os.environ.get("MONGO_DB", "blog"),
-    )
+    app.state.client, app.state.db = await db.connect(os.environ["MONGO_URL"], os.environ["MONGO_DB"])
     yield
-    app.state.client.close()
+    await app.state.client.close()
 
 
 app = FastAPI(title="blog", lifespan=lifespan)
@@ -31,7 +26,7 @@ async def health() -> str:
     return "ok"
 
 
-# Every error leaves as {"error": "message"} — including framework-raised ones.
+# Every error leaves as {"error": "message"}, including framework-raised ones.
 @app.exception_handler(StarletteHTTPException)
 async def http_error(_: Request, exc: StarletteHTTPException) -> JSONResponse:
     return JSONResponse({"error": str(exc.detail)}, status_code=exc.status_code)

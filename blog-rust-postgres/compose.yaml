@@ -5,20 +5,20 @@ services:
       - "8080:8080"
     environment:
       PORT: "8080"
-      DATABASE_URL: postgres://blog:blog@db:5432/blog
-      AUTH_SECRET: dev-secret-change-me
+      DATABASE_URL: postgres://blog:blog@db:5432/blog?sslmode=disable
+      AUTH_SECRET: change-me-in-production
     depends_on:
       db:
         condition: service_healthy
 
   db:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     environment:
       POSTGRES_USER: blog
       POSTGRES_PASSWORD: blog
       POSTGRES_DB: blog
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - ./data/postgres:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U blog -d blog"]
       interval: 5s

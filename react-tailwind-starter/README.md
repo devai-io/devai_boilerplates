@@ -1,40 +1,46 @@
 # react-tailwind-starter
 
-The quickest possible React start: Vite, React 19, TypeScript and Tailwind CSS v3.
-No router, no state library, no component framework — a clean slate that builds in
-seconds and hot-reloads instantly.
+The quickest sane React start: Vite 8, React 19, TypeScript and Tailwind CSS v4.
+No router, no state library, no component framework — a clean slate that builds
+in seconds and hot-reloads instantly.
 
-## Requirements
+## Run
 
-- [Bun](https://bun.sh) (or Node 20+ with npm/pnpm — swap the commands accordingly)
+Get it: `git clone https://git.devai.io/templates/react-tailwind-starter.git`
 
-## Quickstart
+    docker compose up --build
 
-```sh
-bun install
-bun run dev      # http://localhost:5173
-bun run build    # production build in dist/
-```
+Open http://localhost:8080 — the production build, served by nginx.
+
+Hot-reload dev server (Node 24):
+
+    npm ci
+    npm run dev        # http://localhost:5173
+
+## How it works
+
+Tailwind v4 is configured in CSS, not JavaScript. `src/index.css` is a single
+`@import "tailwindcss";`, and the `@tailwindcss/vite` plugin finds the class names
+in your source files. There is no `tailwind.config.js` and no PostCSS config — add
+design tokens with an `@theme { … }` block in the same CSS file.
+
+`npm run build` type-checks (`tsc --noEmit`) and then bundles into `dist/`.
 
 ## Layout
 
-```
-index.html          Vite entry
-vite.config.ts      Vite + React plugin
-tailwind.config.js  Tailwind content globs (extend the theme here)
-postcss.config.js   Tailwind + autoprefixer
-src/
-  main.tsx          React root
-  App.tsx           Landing screen — replace and go
-  index.css         Tailwind directives
-```
+    vite.config.ts   React + Tailwind Vite plugins
+    src/index.css    Tailwind entry point (add @theme tokens here)
+    src/App.tsx      landing screen — replace and go
+    nginx.conf       SPA fallback + long-lived caching for hashed /assets/
+    Dockerfile       npm ci + vite build, served by unprivileged nginx
 
-## Docker
+## Deploy
 
-Multi-stage build: Bun compiles the app, nginx-alpine serves `dist/` with SPA
-fallback (`nginx.conf`).
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
 
-```sh
-docker build -t react-tailwind-starter .
-docker run -p 8080:80 react-tailwind-starter
-```
+---
+Part of [devai.io](https://devai.io) — UI starters: `react-tailwind-starter` and
+[`react-shadcn-starter`](https://git.devai.io/templates/react-shadcn-starter).

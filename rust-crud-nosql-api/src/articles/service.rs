@@ -1,128 +1,139 @@
-use chrono::Utc;
-use mongodb::bson::{doc};
-use mongodb::{Database};
+use futures_util::TryStreamExt;
+use mongodb::Collection;
+use mongodb::bson::oid::ObjectId;
+use mongodb::bson::{DateTime, doc, to_bson};
+use mongodb::options::ReturnDocument;
 
-use crate::Result;
-use crate::articles::models::{Article, Comment};
-use crate::articles::utils::{parse_articles, parse_article, article_to_doc, comment_to_doc};
-use crate::error::{AppError};
+use crate::articles::models::{Article, ArticleFields, Comment, NewComment};
+use crate::error::{ApiError, conflict_on_duplicate};
 
+const URL_TAKEN: &str = "an article with this url already exists";
 
-pub async fn get_articles(_db: Database) -> Result<Vec<Article>> {
-    let mut _cursor = _db.clone().collection("articles").find(None, None).await.map_err(|_e| { 
-        println!("ERROR [get_articles] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    return parse_articles(_cursor).await;
-}
-
-
-pub async fn get_home_articles(_db: Database) -> Result<Vec<Article>> {
-    let filter = doc!{ "in_home": true };
-    let mut _cursor = _db.clone().collection("articles").find(filter, None).await.map_err(|_e| { 
-        println!("ERROR [get_home_articles] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    return parse_articles(_cursor).await;
-}
-
-
-pub async fn get_article_by_url(_url: String, _db: Database) -> Result<Article> {
-    let filter = doc! { "url": _url };
-    let col = _db.clone().collection("articles");
-    let mut _cursor = col.find(filter, None).await.map_err(|_e| { 
-        println!("ERROR [get_article_by_url] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    return parse_article(_cursor).await;
-}
-
-
-pub async fn create_article(_article: &Article, _db: Database) -> Result<()> {
-    let doc = article_to_doc(_article);
-    let _cursor = _db.collection("articles").insert_one(doc, None).await.map_err(|_e| { 
-        println!("ERROR [create_article] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    Ok(())
-}
-
-
-pub async fn update_article(_req: &Article, _db: Database) -> Result<()> {
-    let oid = mongodb::bson::oid::ObjectId::with_string(&_req.id.clone().unwrap()).unwrap();
-    let filter = doc! { "_id": oid };
-    let updates = doc! { "$set": {
-            "title": _req.title.clone().unwrap(),
-            "url": _req.url.clone().unwrap(),
-            "content": _req.content.clone().unwrap(),
-            "in_home": _req.in_home.clone().unwrap(),
-            "tags": _req.tags.clone().unwrap(),
-            "updated_at": Utc::now(),
-        }
+pub async fn get_articles(
+    articles: &Collection<Article>,
+    home_only: bool,
+) -> Result<Vec<Article>, ApiError> {
+    let filter = if home_only {
+        doc! { "in_home": true }
+    } else {
+        doc! {}
     };
-    let _cursor = _db.collection("articles").update_one(filter, updates, None).await.map_err(|_e| { 
-        println!("ERROR [update_article] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    Ok(())
+    let cursor = articles
+        .find(filter)
+        .projection(doc! { "content": 0, "comments": 0 })
+        .sort(doc! { "created_at": -1 })
+        .await?;
+    Ok(cursor.try_collect().await?)
 }
 
-
-pub async fn delete_article(_id: &str, _db: Database) -> Result<()> {
-    let oid = mongodb::bson::oid::ObjectId::with_string(&_id).unwrap();
-    let filter = doc! { "_id": oid };
-    _db.collection("articles").delete_one(filter, None).await.map_err(|_e| { 
-        println!("ERROR [delete_article] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    Ok(())
+pub async fn get_article_by_url(
+    articles: &Collection<Article>,
+    url: &str,
+) -> Result<Option<Article>, ApiError> {
+    Ok(articles.find_one(doc! { "url": url }).await?)
 }
 
-
-pub async fn update_home_view(_id: String, _db: Database) -> Result<()> {
-    let oid = mongodb::bson::oid::ObjectId::with_string(&_id).unwrap();
-    let filter = doc! { "_id": oid };
-    let mut _cursor = _db.clone().collection("articles").find(filter.clone(), None).await.map_err(|_e| { 
-        println!("ERROR [update_home_view] {:?}", _e);
-        return AppError::DataError;
-    })?;
-
-    let _article = parse_article(_cursor).await.unwrap();
-
-    let updates = doc! { "$set": {
-            "in_home": !_article.in_home.unwrap(),
-            "updated_at": Utc::now(),
-        }
+pub async fn create_article(
+    articles: &Collection<Article>,
+    fields: &ArticleFields,
+) -> Result<Article, ApiError> {
+    let now = DateTime::now();
+    let article = Article {
+        id: ObjectId::new(),
+        title: fields.title.trim().to_string(),
+        url: fields.url.clone(),
+        content: fields.content.clone(),
+        tags: fields.tags.clone(),
+        in_home: fields.in_home,
+        comments: Vec::new(),
+        created_at: now,
+        updated_at: now,
     };
-    let _cursor = _db.collection("articles").update_one(filter, updates, None).await.map_err(|_e| { 
-        println!("ERROR [update_home_view] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    Ok(())
+    articles
+        .insert_one(&article)
+        .await
+        .map_err(conflict_on_duplicate(URL_TAKEN))?;
+    Ok(article)
 }
 
-
-// Comments
-
-pub async fn create_comment(_article_id: String, _comment: &Comment, _db: Database) -> Result<()> {
-    let oid = mongodb::bson::oid::ObjectId::with_string(&_article_id).unwrap();
-    let filter = doc! { "_id": oid };
-    let updates = doc! { "$push": { "comments": comment_to_doc(_comment) } };
-    let _cursor = _db.collection("articles").update_one(filter, updates, None).await.map_err(|_e| { 
-        println!("ERROR [get_article_by_url] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    Ok(())
+pub async fn update_article(
+    articles: &Collection<Article>,
+    id: ObjectId,
+    fields: &ArticleFields,
+) -> Result<Option<Article>, ApiError> {
+    let update = doc! { "$set": {
+        "title": fields.title.trim(),
+        "url": &fields.url,
+        "content": &fields.content,
+        "tags": fields.tags.clone(),
+        "in_home": fields.in_home,
+        "updated_at": DateTime::now(),
+    }};
+    articles
+        .find_one_and_update(doc! { "_id": id }, update)
+        .return_document(ReturnDocument::After)
+        .await
+        .map_err(conflict_on_duplicate(URL_TAKEN))
 }
 
+pub async fn delete_article(
+    articles: &Collection<Article>,
+    id: ObjectId,
+) -> Result<bool, ApiError> {
+    let result = articles.delete_one(doc! { "_id": id }).await?;
+    Ok(result.deleted_count > 0)
+}
 
-pub async fn delete_comment(_article_id: String, _comment_id: String, _db: Database) -> Result<()> {
-    let oid = mongodb::bson::oid::ObjectId::with_string(&_article_id).unwrap();
-    let filter = doc! { "_id": oid };
-    let updates = doc! { "$pull": { "id": _comment_id } };
-    let _cursor = _db.collection("articles").update_one(filter, updates, None).await.map_err(|_e| { 
-        println!("ERROR [get_article_by_url] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    Ok(())
+/// Flips `in_home` inside MongoDB (an update pipeline), so concurrent toggles
+/// cannot lose an update.
+pub async fn toggle_home_view(
+    articles: &Collection<Article>,
+    id: ObjectId,
+) -> Result<Option<Article>, ApiError> {
+    let flip = vec![doc! { "$set": { "in_home": { "$not": "$in_home" }, "updated_at": "$$NOW" } }];
+    Ok(articles
+        .find_one_and_update(doc! { "_id": id }, flip)
+        .return_document(ReturnDocument::After)
+        .await?)
+}
+
+pub async fn get_comments(
+    articles: &Collection<Article>,
+    article_id: ObjectId,
+) -> Result<Vec<Comment>, ApiError> {
+    let article = articles.find_one(doc! { "_id": article_id }).await?;
+    Ok(article.map(|a| a.comments).unwrap_or_default())
+}
+
+pub async fn create_comment(
+    articles: &Collection<Article>,
+    req: &NewComment,
+) -> Result<Comment, ApiError> {
+    let comment = Comment {
+        id: ObjectId::new(),
+        author: req.author.trim().to_string(),
+        email: req.email.trim().to_string(),
+        content: req.content.clone(),
+        created_at: DateTime::now(),
+    };
+    let push = doc! { "$push": { "comments": to_bson(&comment).map_err(ApiError::internal)? } };
+    let result = articles
+        .update_one(doc! { "_id": req.article_id }, push)
+        .await?;
+    if result.matched_count == 0 {
+        return Err(ApiError::not_found("article not found"));
+    }
+    Ok(comment)
+}
+
+pub async fn delete_comment(
+    articles: &Collection<Article>,
+    article_id: ObjectId,
+    comment_id: ObjectId,
+) -> Result<bool, ApiError> {
+    let pull = doc! { "$pull": { "comments": { "id": comment_id } } };
+    let result = articles
+        .update_one(doc! { "_id": article_id }, pull)
+        .await?;
+    Ok(result.modified_count > 0)
 }

@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 /* Typography for rendered markdown (see src/markdown.tsx). */
 .prose-blog {

@@ -1,7 +1,8 @@
-# A Node image is all we need — the server has zero dependencies to install.
-FROM node:20-alpine
+FROM node:24-alpine
 WORKDIR /app
-COPY . .
-ENV PORT=3000
-EXPOSE 3000
+COPY package.json server.js ./
+COPY public ./public
+ENV PORT=8080
+EXPOSE 8080
+USER node
 CMD ["node", "server.js"]

@@ -1,79 +1,83 @@
 # nasa-photo-proxy
 
-> The same "fetch some data and show it" idea as the browser tutorials — but now with
-> a real (tiny) backend, so you learn _why_ apps have servers.
+NASA's Astronomy Picture of the Day, fetched through your own tiny Node server.
+The same "fetch some data and show it" idea as the browser tutorials — but now
+with a real backend, so you learn *why* apps have servers: to keep secrets like
+API keys out of the browser.
 
-**What you'll build:** a page that shows NASA's Astronomy Picture of the Day. A small
-Node server fetches it from NASA and passes it to your browser.
+## Run
 
-**What you'll learn:** why you can't just put an API key in your web page (everyone
-can read it), and how a _backend_ solves that by making the call for you. You'll see a
-complete, dependency-free Node HTTP server — the smallest real backend there is.
+Get it: `git clone https://git.devai.io/templates/nasa-photo-proxy.git`
 
-## Requirements
-
-- [Node.js](https://nodejs.org) 18 or newer (for the built-in `fetch`). Nothing else —
-  this server has **no npm packages to install**.
-
-## Run it
+With [Node.js](https://nodejs.org) 22 or newer — there are no npm packages to
+install:
 
 ```sh
-cp .env.example .env      # optional: paste your own NASA key
-node server.js            # then open http://localhost:3000
+cp .env.example .env    # optional: paste your own NASA key
+node server.js
 ```
 
-**With Docker:**
+Then open http://localhost:8080.
+
+Or run it like production:
 
 ```sh
-docker build -t nasa-photo-proxy .
-docker run -p 3000:3000 --env NASA_API_KEY=DEMO_KEY nasa-photo-proxy
+docker compose up --build
 ```
 
-## The idea in 60 seconds
+Same address. Compose reads `NASA_API_KEY` from `.env` too, and falls back to
+NASA's shared `DEMO_KEY`.
 
-In the browser-only API tutorials, the web page called the API directly. That's fine
-when the API is public. But many APIs need a **secret key**, and anything in your web
-page is visible to anyone who opens "View Source." Ship a key there and strangers will
-happily spend your quota.
+## How it works
 
-The fix: put a **server** in the middle.
-
-```
-  Browser  ──►  /api/apod (your server)  ──►  api.nasa.gov?api_key=SECRET
-           ◄──         (just the photo)  ◄──
-```
-
-Your server holds the key, calls NASA, and returns only what the page needs. The key
-never leaves the server.
-
-## How the code works
-
-`server.js` is one file with two responsibilities:
-
-- **Serve the page.** Any normal request (`/`, `/styles.css`, `/app.js`) reads a file
-  out of `public/` and returns it.
-- **Be the proxy.** A request to `/api/apod` runs `handleApod()`, which `fetch()`es
-  NASA using the key from `process.env.NASA_API_KEY`, then forwards a trimmed-down JSON
-  object back to the browser.
-
-Open `public/app.js` and notice it fetches `"/api/apod"` — its _own_ server — never
-`nasa.gov`. The browser has no idea the key exists.
-
-## Try changing something
-
-- Cache the result for an hour so you don't call NASA on every reload.
-- Add `/api/apod?date=2022-07-11` support (NASA's API accepts a `date` parameter).
-- Swap NASA for any key-protected API you like — the proxy pattern is identical.
-
-## Files
+In the browser-only tutorials the page called the API directly. That's fine
+for keyless APIs, but many APIs need a **secret key** — and anything in a web
+page is visible to anyone who opens "View Source". So put a server in the
+middle:
 
 ```
-server.js            the whole backend: static files + the /api/apod proxy
-package.json         name + "start" script (no dependencies)
-.env.example         where the API key goes
-public/
-  index.html         the page
-  styles.css         how it looks (light + dark)
-  app.js             calls /api/apod on our own server
-Dockerfile           runs it on node:20-alpine
+Browser  ──►  /api/apod (your server)  ──►  api.nasa.gov/planetary/apod?api_key=SECRET
+         ◄──   title, date, image URL   ◄──
 ```
+
+`server.js` has two jobs:
+
+- **Serve the page.** Requests like `/`, `/styles.css` and `/app.js` read a
+  file from `public/` — and anything that tries to climb out of it
+  (`/../server.js`) is refused.
+- **Be the proxy.** `/api/apod` calls NASA with `NASA_API_KEY` from the
+  environment (or `.env`, loaded with Node's built-in `process.loadEnvFile()`),
+  and sends back only the fields the page needs.
+
+`public/app.js` fetches `/api/apod` — its *own* server — never `nasa.gov`, so
+the key never reaches the browser. `DEMO_KEY` is shared by everyone and allows
+only a few dozen requests an hour; when NASA says "too many", the page tells
+you to get a free key at https://api.nasa.gov.
+
+Try it: cache NASA's answer for an hour so reloads don't call NASA, add
+`/api/apod?date=2022-07-11` (NASA accepts a `date` parameter), or swap NASA
+for any other key-protected API — the proxy pattern is identical.
+
+## Layout
+
+```
+server.js           the whole backend: static files + the /api/apod proxy
+public/index.html   the page
+public/app.js       calls /api/apod on our own server
+public/styles.css   the look; follows your system's light or dark mode
+.env.example        where the API key goes
+package.json        name + "start" script; the lockfile is empty on purpose
+```
+
+## Deploy
+
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh. Put your real
+`NASA_API_KEY` in `.env` next to `compose.yaml` on the server.
+
+---
+Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
+from the internet. Previous:
+[ip-lookup](https://git.devai.io/templates/ip-lookup).

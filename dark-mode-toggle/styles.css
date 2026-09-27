@@ -1,6 +1,5 @@
-/* This tutorial is all about theming, so the colors are driven by a
-   [data-theme] attribute on <html> that JavaScript sets — not only by the OS
-   preference. Each palette is just a set of CSS variables. */
+/* Every color on the page is a CSS variable. Each palette below is just a
+   different set of values, picked by one attribute on <html>: data-theme. */
 
 :root {
   --accent: #8b5cf6;
@@ -10,6 +9,7 @@
 /* Dark palette: the default, and whenever data-theme="dark". */
 :root,
 [data-theme="dark"] {
+  color-scheme: dark;
   --bg: #0b0c0e;
   --surface: #14161a;
   --border: rgba(255, 255, 255, 0.09);
@@ -20,6 +20,7 @@
 
 /* Light palette: whenever data-theme="light". */
 [data-theme="light"] {
+  color-scheme: light;
   --bg: #f5f7f9;
   --surface: #ffffff;
   --border: rgba(0, 0, 0, 0.08);
@@ -32,6 +33,7 @@
    very first paint already looks right. Once data-theme is set, that wins. */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme]) {
+    color-scheme: light;
     --bg: #f5f7f9;
     --surface: #ffffff;
     --border: rgba(0, 0, 0, 0.08);

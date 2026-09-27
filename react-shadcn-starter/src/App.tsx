@@ -17,16 +17,16 @@ export default function App() {
   const [subscribed, setSubscribed] = useState(false)
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-8 px-6">
+    <main className="flex min-h-svh flex-col items-center justify-center gap-8 px-6">
       <div className="flex flex-col items-center gap-2 text-center">
         <p className="rounded-full border bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground">
-          Vite &middot; React 19 &middot; Tailwind &middot; shadcn/ui
+          Vite &middot; React 19 &middot; Tailwind v4 &middot; shadcn/ui
         </p>
         <h1 className="text-4xl font-bold tracking-tight">shadcn/ui, wired up</h1>
         <p className="max-w-md text-muted-foreground">
           Button, Card and Input are included. Add anything else with{" "}
           <code className="rounded bg-muted px-1.5 py-0.5 text-sm">
-            bunx shadcn@latest add &lt;name&gt;
+            npx shadcn@latest add &lt;name&gt;
           </code>
         </p>
       </div>
@@ -34,9 +34,7 @@ export default function App() {
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>Stay in the loop</CardTitle>
-          <CardDescription>
-            A little form to prove the components work.
-          </CardDescription>
+          <CardDescription>A little form to prove the components work.</CardDescription>
         </CardHeader>
         <CardContent>
           <Input
@@ -53,11 +51,9 @@ export default function App() {
           <Button variant="ghost" size="sm" onClick={() => setEmail("")}>
             Clear
           </Button>
-          <Button
-            disabled={!email.includes("@")}
-            onClick={() => setSubscribed(true)}
-          >
-            <Rocket /> {subscribed ? "Subscribed!" : "Subscribe"}
+          <Button disabled={!email.includes("@")} onClick={() => setSubscribed(true)}>
+            <Rocket data-icon="inline-start" />
+            {subscribed ? "Subscribed!" : "Subscribe"}
           </Button>
         </CardFooter>
       </Card>

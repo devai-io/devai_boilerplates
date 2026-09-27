@@ -13,10 +13,10 @@ class BlogApp extends StatelessWidget {
   final ApiClient api;
 
   ThemeData _theme(Brightness brightness) => ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple, brightness: brightness),
-        appBarTheme: const AppBarTheme(centerTitle: false),
-      );
+    useMaterial3: true,
+    colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple, brightness: brightness),
+    appBarTheme: const AppBarTheme(centerTitle: false),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -25,8 +25,7 @@ class BlogApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       theme: _theme(Brightness.light),
       darkTheme: _theme(Brightness.dark),
-      // Dark-first: follow the system but default builds showcase dark.
-      themeMode: ThemeMode.dark,
+      themeMode: ThemeMode.system,
       home: PostsScreen(api: api),
     );
   }

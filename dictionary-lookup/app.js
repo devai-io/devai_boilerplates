@@ -1,6 +1,3 @@
-// Dictionary Lookup — type a word, fetch its definitions, show them.
-// Concept: reading NESTED JSON — arrays inside objects inside arrays.
-
 const form = document.getElementById("form");
 const input = document.getElementById("word");
 const entry = document.getElementById("entry");
@@ -12,24 +9,24 @@ async function lookup(word) {
   entry.hidden = true;
 
   try {
-    // The free Dictionary API. No key needed.
-    // encodeURIComponent keeps odd characters from breaking the URL.
+    // Free Dictionary API: English Wiktionary as JSON, no key needed.
     const res = await fetch(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
+      `https://freedictionaryapi.com/api/v1/entries/en/${encodeURIComponent(word)}`,
     );
+    if (res.status === 429) {
+      statusEl.textContent = "Too many lookups this hour — try again later.";
+      return;
+    }
+    if (!res.ok) throw new Error(`Dictionary API returned ${res.status}`);
 
-    if (res.status === 404) {
-      // This API answers 404 when it simply has no entry for the word.
+    const data = await res.json();
+    // An unknown word still answers 200 — just with an empty entries array.
+    if (data.entries.length === 0) {
       statusEl.textContent = `No definition found for "${word}".`;
       return;
     }
-    if (!res.ok) {
-      throw new Error(`Dictionary API returned ${res.status}`);
-    }
 
-    // A successful answer is an ARRAY of entries. We show the first one: data[0].
-    const data = await res.json();
-    render(data[0]);
+    render(data);
     statusEl.textContent = "";
   } catch (err) {
     statusEl.textContent = "Something went wrong. Try again in a moment.";
@@ -37,52 +34,57 @@ async function lookup(word) {
   }
 }
 
-// The shape we're reading — this is why it's a "nested JSON" lesson:
+// The answer is NESTED: arrays inside objects inside arrays. Three levels deep.
 //
-//   entry = {
-//     word: "serendipity",
-//     phonetic: "/ˌsɛɹənˈdɪpɪti/",              // may be missing
-//     meanings: [                               // an array…
+//   data = {
+//     word: "curious",
+//     entries: [                                  // level 1: one per part of speech
 //       {
-//         partOfSpeech: "noun",
-//         definitions: [                        // …of objects, each holding an array…
-//           { definition: "…", example: "…" }   // …of objects. Three levels deep!
-//         ]
-//       }
-//     ]
+//         partOfSpeech: "adjective",
+//         pronunciations: [{ type: "ipa", text: "/ˈkjʊə.ɹi.əs/" }],
+//         senses: [                               // level 2: one per meaning
+//           {
+//             definition: "Tending to ask questions…",
+//             examples: ["Young children are naturally curious…"],  // level 3
+//           },
+//         ],
+//       },
+//     ],
 //   }
 //
-// To reach the data we walk down the levels with loops.
-function render(entryData) {
-  document.getElementById("word-title").textContent = entryData.word;
-  // `phonetic` is optional — fall back to an empty string if it's not there.
-  document.getElementById("phonetic").textContent = entryData.phonetic || "";
+// To reach the data, walk down one loop per level.
+function render(data) {
+  document.getElementById("word-title").textContent = data.word;
 
-  // Rebuild the meanings from scratch on every lookup.
+  // Pronunciations are optional: take the first IPA one from any entry, if any.
+  const ipa = data.entries
+    .flatMap((e) => e.pronunciations || [])
+    .find((p) => p.type === "ipa");
+  document.getElementById("phonetic").textContent = ipa ? ipa.text : "";
+
   meaningsEl.replaceChildren();
 
-  // Loop the OUTER array: one block per part of speech (noun, verb, …).
-  for (const meaning of entryData.meanings) {
+  for (const item of data.entries) {
     const section = document.createElement("section");
     section.className = "meaning";
 
     const pos = document.createElement("h3");
     pos.className = "pos";
-    pos.textContent = meaning.partOfSpeech;
+    pos.textContent = item.partOfSpeech;
     section.appendChild(pos);
 
-    // Loop the INNER array: one list item per definition.
     const list = document.createElement("ol");
     list.className = "definitions";
-    for (const def of meaning.definitions) {
+    for (const sense of item.senses) {
       const li = document.createElement("li");
-      li.textContent = def.definition;
+      li.textContent = sense.definition;
 
-      // `example` is optional too — only show it when the API gives us one.
-      if (def.example) {
+      // examples is optional too — show the first one when there is one.
+      const example = sense.examples?.[0];
+      if (example) {
         const ex = document.createElement("p");
         ex.className = "example";
-        ex.textContent = `“${def.example}”`;
+        ex.textContent = `“${example}”`;
         li.appendChild(ex);
       }
       list.appendChild(li);
@@ -95,10 +97,9 @@ function render(entryData) {
 }
 
 form.addEventListener("submit", (event) => {
-  event.preventDefault(); // stop the form from reloading the page
+  event.preventDefault();
   const word = input.value.trim();
   if (word) lookup(word);
 });
 
-// Look up one word on first load so the page isn't empty.
-lookup("serendipity");
+lookup("curious");

@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router";
 import { createPost, getPost, updatePost } from "../api";
 
 const fieldCls =
@@ -8,14 +8,14 @@ const fieldCls =
 
 export function Editor() {
   const { slug } = useParams<{ slug: string }>();
-  const editing = slug !== undefined;
   const [id, setId] = useState<string | null>(null);
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
   const [published, setPublished] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [loaded, setLoaded] = useState(!editing);
+  const [loaded, setLoaded] = useState(slug === undefined);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -35,28 +35,37 @@ export function Editor() {
     e.preventDefault();
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
-      let saved;
-      if (editing && id) {
-        saved = await updatePost(id, { title, body, published });
-      } else {
-        saved = await createPost({ title, body });
-        // Posts are created unpublished; flip the flag in a follow-up update.
-        if (published) saved = await updatePost(saved.id, { published: true });
+      let saved = id
+        ? await updatePost(id, { title, body, published })
+        : await createPost({ title, body });
+      // Posts are created unpublished; flip the flag in a follow-up update.
+      if (!id && published) saved = await updatePost(saved.id, { published: true });
+      if (saved.published) {
+        navigate(`/posts/${saved.slug}`);
+        return;
       }
-      navigate(saved.published ? `/${saved.slug}` : "/");
+      // The API never serves drafts back, so keep editing this one right here.
+      setId(saved.id);
+      setNotice("Draft saved. Tick Published and save again to make it public.");
     } catch (err) {
       setError((err as Error).message);
-      setBusy(false);
     }
+    setBusy(false);
   }
 
-  if (!loaded && !error) return <p className="text-zinc-500 text-sm">Loading…</p>;
+  if (!loaded)
+    return error ? (
+      <p className="text-red-500 text-sm">{error}</p>
+    ) : (
+      <p className="text-zinc-500 text-sm">Loading…</p>
+    );
 
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight">
-        {editing ? "Edit post" : "New post"}
+        {id ? "Edit post" : "New post"}
       </h1>
       <form onSubmit={handleSubmit} className="mt-6 space-y-4">
         <input
@@ -93,6 +102,7 @@ export function Editor() {
             {busy ? "Saving…" : "Save"}
           </button>
         </div>
+        {notice && <p className="text-sm text-zinc-500">{notice}</p>}
         {error && <p className="text-sm text-red-500">{error}</p>}
       </form>
     </div>

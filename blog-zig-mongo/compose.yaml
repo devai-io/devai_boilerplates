@@ -7,13 +7,13 @@ services:
       PORT: "8080"
       MONGO_URL: mongodb://db:27017
       MONGO_DB: blog
-      AUTH_SECRET: change-me
+      AUTH_SECRET: change-me-in-production
     depends_on:
       db:
         condition: service_healthy
 
   db:
-    image: mongo:7
+    image: mongo:8
     volumes:
       - ./data/mongo:/data/db
     healthcheck:

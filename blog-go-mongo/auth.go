@@ -8,9 +8,8 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -49,7 +48,7 @@ func (a *app) register(w http.ResponseWriter, r *http.Request) {
 	res, err := a.users.InsertOne(r.Context(), bson.M{
 		"email":         in.Email,
 		"password_hash": string(hash),
-		"created_at":    time.Now().UTC(),
+		"created_at":    mongoNow(),
 	})
 	if isDuplicate(err) {
 		writeErr(w, http.StatusConflict, "email already registered")
@@ -59,7 +58,7 @@ func (a *app) register(w http.ResponseWriter, r *http.Request) {
 		internalErr(w, err)
 		return
 	}
-	id := res.InsertedID.(primitive.ObjectID)
+	id := res.InsertedID.(bson.ObjectID)
 	writeJSON(w, http.StatusCreated, map[string]any{"id": id.Hex(), "email": in.Email})
 }
 
@@ -73,8 +72,8 @@ func (a *app) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var u struct {
-		ID           primitive.ObjectID `bson:"_id"`
-		PasswordHash string             `bson:"password_hash"`
+		ID           bson.ObjectID `bson:"_id"`
+		PasswordHash string        `bson:"password_hash"`
 	}
 	err := a.users.FindOne(r.Context(),
 		bson.M{"email": strings.ToLower(strings.TrimSpace(in.Email))}).Decode(&u)

@@ -1,7 +1,7 @@
 # STUB — replace this file with the one generated for YOUR machine:
 #
 #   sudo nixos-generate-config --show-hardware-config \
-#     > hosts/desktop/hardware-configuration.nix
+#     | sudo tee hosts/desktop/hardware-configuration.nix
 #
 # The values below only exist so the flake evaluates out of the box;
 # they will not boot real hardware.

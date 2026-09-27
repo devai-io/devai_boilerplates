@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router";
 import { deletePost, getPost, type Post } from "../api";
 import { Markdown } from "../markdown";
 

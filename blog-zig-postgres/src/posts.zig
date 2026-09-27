@@ -25,36 +25,63 @@ pub fn create(app: *App, arena: Allocator, req: *http.Server.Request) !void {
     }, arena, req);
 
     const title = std.mem.trim(u8, in.title, " \t\r\n");
-    if (title.len == 0)
-        return web.sendError(req, .unprocessable_entity, "title is required");
+    if (title.len == 0 or std.mem.trim(u8, in.body, " \t\r\n").len == 0)
+        return web.sendError(req, .bad_request, "title and body are required");
 
-    const slug = try slugify(arena, title);
-    const post = try app.db.createPost(arena, author_id, title, slug, in.body);
+    const post = try app.db.createPost(arena, author_id, title, try slugify(arena, title), in.body);
     try web.sendJson(req, .created, post, arena);
 }
 
 pub fn update(app: *App, arena: Allocator, req: *http.Server.Request, id_param: []const u8) !void {
-    const author_id = try auth.requireAuth(app, arena, req);
-    const changes = try web.parseJson(db.PostUpdate, arena, req);
+    const user_id = try auth.requireAuth(app, arena, req);
+    const in = try web.parseJson(struct {
+        title: ?[]const u8 = null,
+        body: ?[]const u8 = null,
+        published: ?bool = null,
+    }, arena, req);
 
-    const existing = (try app.db.getPostById(arena, id_param)) orelse return error.NotFound;
-    if (existing.author_id != author_id) return error.Forbidden;
+    const post = try findOwnPost(app, arena, id_param, user_id);
 
-    const post = try app.db.updatePost(arena, existing.id, changes);
-    try web.sendJson(req, .ok, post, arena);
+    var title = post.title;
+    var slug = post.slug;
+    if (in.title) |raw| {
+        const trimmed = std.mem.trim(u8, raw, " \t\r\n");
+        if (trimmed.len == 0) return web.sendError(req, .bad_request, "title cannot be empty");
+        // The slug follows the title; an unchanged title keeps its slug.
+        if (!std.mem.eql(u8, trimmed, post.title)) {
+            title = trimmed;
+            slug = try slugify(arena, trimmed);
+        }
+    }
+
+    const updated = try app.db.updatePost(
+        arena,
+        post.id,
+        title,
+        slug,
+        in.body orelse post.body,
+        in.published orelse post.published,
+    );
+    try web.sendJson(req, .ok, updated, arena);
 }
 
 pub fn delete(app: *App, arena: Allocator, req: *http.Server.Request, id_param: []const u8) !void {
-    const author_id = try auth.requireAuth(app, arena, req);
-
-    const existing = (try app.db.getPostById(arena, id_param)) orelse return error.NotFound;
-    if (existing.author_id != author_id) return error.Forbidden;
-
-    try app.db.deletePost(existing.id);
+    const user_id = try auth.requireAuth(app, arena, req);
+    const post = try findOwnPost(app, arena, id_param, user_id);
+    try app.db.deletePost(post.id);
     try req.respond("", .{ .status = .no_content });
 }
 
-/// Lowercased ASCII alphanumerics, everything else collapsed to single dashes.
+/// error.NotFound if the post doesn't exist, error.Forbidden if it belongs
+/// to someone else.
+fn findOwnPost(app: *App, arena: Allocator, id_param: []const u8, user_id: i64) !db.Post {
+    const post = (try app.db.getPostById(arena, id_param)) orelse return error.NotFound;
+    if (post.author_id != user_id) return error.Forbidden;
+    return post;
+}
+
+/// Lowercases the title and collapses every non-alphanumeric run into a
+/// single dash: "Hello, World!" -> "hello-world".
 fn slugify(arena: Allocator, title: []const u8) ![]const u8 {
     var out: std.ArrayList(u8) = .empty;
     var pending_dash = false;

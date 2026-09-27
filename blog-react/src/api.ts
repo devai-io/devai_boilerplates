@@ -1,4 +1,5 @@
-const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+// Default /api: same origin, forwarded to the API by nginx (Docker) or Vite (npm run dev).
+const BASE = import.meta.env.VITE_API_URL || "/api";
 const TOKEN_KEY = "blog_token";
 
 // Token lives in memory; localStorage only rehydrates it across reloads.
@@ -33,11 +34,11 @@ export interface Post {
 }
 
 export class ApiError extends Error {
-  constructor(
-    public status: number,
-    message: string,
-  ) {
+  status: number;
+
+  constructor(status: number, message: string) {
     super(message);
+    this.status = status;
   }
 }
 

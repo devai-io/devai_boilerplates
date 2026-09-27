@@ -1,70 +1,76 @@
 # blog-flutter
 
-Minimal blog client built with Flutter and Material 3. Plain `setState` plus one
-`ChangeNotifier` for auth state — no state-management framework, no code generation.
-Works against any of the devai.io blog backends (they all implement the same API
-contract).
+The blog client as a Flutter app — Material 3, a post list, a post screen with
+rendered markdown, login, and an editor with a publish switch. Plain `setState`
+plus one `ChangeNotifier` for auth — no state-management package, no code
+generation. It works against any backend of the devai.io blog engine series.
 
-Only `lib/`, `pubspec.yaml`, and `analysis_options.yaml` ship in this template.
-There are no platform shells — run `flutter create .` once inside the project and
-Flutter regenerates `android/`, `ios/`, `web/`, and desktop scaffolding.
+## Run
 
-## Requirements
+Get it: `git clone https://git.devai.io/templates/blog-flutter.git`
 
-- Flutter SDK 3.27+ (Dart 3.6+)
-- A blog backend running (default: `http://localhost:8080`)
+Only `lib/`, `pubspec.yaml`, `pubspec.lock` and `analysis_options.yaml` ship here —
+no platform shells. Generate the ones you want once, then run (Flutter 3.47):
 
-## Quickstart
+    flutter create --empty --platforms=android,ios,web .
+    flutter run --dart-define=API_URL=http://localhost:8080
 
-```sh
-flutter create .        # regenerate platform shells (first run only)
-flutter pub get
-flutter run --dart-define=API_URL=http://localhost:8080
-```
+`--empty` keeps `flutter create` from adding a sample test that refers to its own
+demo app. Start a backend sibling first (e.g. `docker compose up --build` in
+`blog-go-postgres`), then create a user, since there is no sign-up screen:
 
-The API base URL is a compile-time constant read with
-`String.fromEnvironment('API_URL')`; pass `--dart-define=API_URL=...` to `flutter run`
-or `flutter build`. It defaults to `http://localhost:8080`. On the Android emulator
-use `http://10.0.2.2:8080` to reach a backend on your host machine.
+    curl -X POST localhost:8080/auth/register -H 'Content-Type: application/json' \
+      -d '{"email":"me@example.com","password":"secret123"}'
 
-## Project layout
+## How it works
 
-```
-lib/
-  main.dart                 app shell, Material 3 theme (dark-first)
-  api.dart                  ApiClient (ChangeNotifier): auth + typed API calls
-  markdown.dart             dependency-free markdown → widgets renderer
-  screens/
-    posts_screen.dart       published posts list (pull to refresh)
-    post_screen.dart        full post, rendered markdown, edit/delete when authed
-    login_screen.dart       email + password → JWT
-    editor_screen.dart      create/edit with publish switch
-```
+The API base URL is a compile-time constant, `String.fromEnvironment('API_URL')`,
+defaulting to `http://localhost:8080`; pass `--dart-define=API_URL=...` to
+`flutter run` or `flutter build`. On the Android emulator use
+`http://10.0.2.2:8080` to reach a backend on your machine. Mobile and desktop
+builds call the API directly; a web build is subject to CORS, which the series
+backends do not send, so serve it behind a proxy on the API's origin instead.
 
-## How auth works
+`ApiClient` (a `ChangeNotifier`) keeps the JWT from `POST /auth/login` in memory
+and sends `Authorization: Bearer <token>`; the app bar swaps between Log in and
+Write / Log out as it changes. The token is not persisted — add
+`shared_preferences` to `ApiClient` if sessions should survive a restart.
 
-`ApiClient.login()` posts to `/auth/login` and keeps the returned JWT in memory;
-every request then sends `Authorization: Bearer <token>`. The client is a
-`ChangeNotifier`, so the UI swaps between Log in / Write / Log out automatically.
+Markdown is turned into Flutter widgets (`Text.rich` spans), never HTML; links are
+styled but not tappable.
 
-The token is intentionally not persisted (the web clients in this series mirror it
-to localStorage; Flutter has no direct equivalent). If you want sessions to survive
-an app restart, add `shared_preferences` and load/save the token in `ApiClient`.
+The API never returns unpublished posts, so the editor keeps a freshly saved draft
+open; switch on Published and save again to make it public.
 
-There is no registration UI; create a user against the API directly:
+API calls used:
 
-```sh
-curl -X POST $API/auth/register -H 'Content-Type: application/json' \
-  -d '{"email":"me@example.com","password":"secret"}'
-```
+    POST   /auth/login          {email, password} -> {token}
+    GET    /posts               -> [{id, title, slug, excerpt, published_at}]
+    GET    /posts/{slug}        -> full post
+    POST   /posts        (auth) {title, body} -> post (unpublished)
+    PUT    /posts/{id}   (auth) {title?, body?, published?} -> post
+    DELETE /posts/{id}   (auth) -> 204
 
-## API contract consumed
+## Layout
 
-```
-POST /auth/login          {email, password} -> {token}
-GET  /posts               -> [{id,title,slug,excerpt,published_at}]
-GET  /posts/{slug}        -> full post
-POST /posts        (auth) -> create {title, body}
-PUT  /posts/{id}   (auth) -> update {title?, body?, published?}
-DELETE /posts/{id} (auth) -> 204
-```
+    lib/main.dart                  app shell, Material 3 light and dark themes
+    lib/api.dart                   ApiClient: auth state + typed API calls
+    lib/markdown.dart              dependency-free markdown → widgets
+    lib/screens/posts_screen.dart  published posts, pull to refresh
+    lib/screens/post_screen.dart   full post; edit/delete when signed in
+    lib/screens/login_screen.dart  email + password → JWT
+    lib/screens/editor_screen.dart create/edit with publish switch
+
+## Deploy
+
+A device app ships through the app stores (`flutter build appbundle`,
+`flutter build ipa`), not to a server, so there is no Dockerfile or compose file.
+Push to your own GitHub repo and the shipped workflow (`.github/workflows/ci.yml`)
+clones Flutter 3.47.4 from the official repository and runs
+`flutter pub get --enforce-lockfile` and `flutter analyze`.
+
+---
+Part of [devai.io](https://devai.io) — the blog frontend series, one API and four
+clients: [`blog-react`](https://git.devai.io/templates/blog-react),
+[`blog-angular`](https://git.devai.io/templates/blog-angular),
+[`blog-dart`](https://git.devai.io/templates/blog-dart), `blog-flutter`.

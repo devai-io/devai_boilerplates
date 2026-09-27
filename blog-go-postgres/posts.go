@@ -97,14 +97,13 @@ func (a *app) createPost(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var p post
-	err = withUniqueSlug(slugify(in.Title), func(slug string) error {
-		var err error
+	insert := func(slug string) (err error) {
 		p, err = scanPost(a.db.QueryRow(r.Context(),
 			"INSERT INTO posts (title, slug, body, author_id) VALUES ($1, $2, $3, $4) RETURNING "+postCols,
 			in.Title, slug, in.Body, uid))
 		return err
-	})
-	if err != nil {
+	}
+	if err := withUniqueSlug(slugify(in.Title), insert); err != nil {
 		internalErr(w, err)
 		return
 	}
@@ -195,8 +194,8 @@ func (a *app) deletePost(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusNotFound, "post not found")
 		return
 	}
-	var authorID int64
-	err = a.db.QueryRow(r.Context(), "SELECT author_id FROM posts WHERE id = $1", id).Scan(&authorID)
+	p, err := scanPost(a.db.QueryRow(r.Context(),
+		"SELECT "+postCols+" FROM posts WHERE id = $1", id))
 	if errors.Is(err, pgx.ErrNoRows) {
 		writeErr(w, http.StatusNotFound, "post not found")
 		return
@@ -205,7 +204,7 @@ func (a *app) deletePost(w http.ResponseWriter, r *http.Request) {
 		internalErr(w, err)
 		return
 	}
-	if authorID != uid {
+	if p.AuthorID != uid {
 		writeErr(w, http.StatusForbidden, "not your post")
 		return
 	}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, Route, Routes, useNavigate } from "react-router-dom";
+import { Link, Route, Routes, useNavigate } from "react-router";
 import { isAuthed, logout } from "./api";
 import { PostList } from "./pages/PostList";
 import { PostDetail } from "./pages/PostDetail";
@@ -50,7 +50,7 @@ export default function App() {
           <Route path="/login" element={<Login onLogin={() => setAuthed(true)} />} />
           <Route path="/write" element={<Editor />} />
           <Route path="/edit/:slug" element={<Editor />} />
-          <Route path="/:slug" element={<PostDetail authed={authed} />} />
+          <Route path="/posts/:slug" element={<PostDetail authed={authed} />} />
         </Routes>
       </main>
     </div>

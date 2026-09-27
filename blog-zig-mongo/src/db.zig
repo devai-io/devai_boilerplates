@@ -5,12 +5,17 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-pub const c = @cImport({
+const c = @cImport({
+    // Zig 0.16's translate-c can't parse libbson's `_Pragma` warning toggles
+    // or glibc's fortified inline wrappers (on in release builds). Neither
+    // changes a declaration, so switch both off for the import.
+    @cDefine("_Pragma(x)", "");
+    @cUndef("_FORTIFY_SOURCE");
     @cInclude("mongoc/mongoc.h");
 });
 
 pub const User = struct {
-    id: []const u8, // ObjectId hex
+    id: []const u8,
     email: []const u8,
     password_hash: []const u8,
 };
@@ -22,124 +27,102 @@ pub const Post = struct {
     body: []const u8,
     published: bool,
     author_id: []const u8,
-    created_at: i64, // unix seconds
-    updated_at: i64,
-};
-
-pub const PostUpdate = struct {
-    title: ?[]const u8 = null,
-    body: ?[]const u8 = null,
-    published: ?bool = null,
+    created_at: []const u8, // RFC 3339, UTC
+    updated_at: []const u8,
 };
 
 pub const Db = struct {
-    gpa: Allocator,
+    io: std.Io,
     pool: *c.mongoc_client_pool_t,
-    db_name: [:0]const u8,
+    name: [:0]const u8,
 
-    pub fn init(gpa: Allocator, mongo_url: []const u8, db_name: []const u8) !Db {
+    pub fn init(gpa: Allocator, io: std.Io, url: []const u8, name: []const u8) !Db {
         c.mongoc_init();
 
-        const url_z = try gpa.dupeZ(u8, mongo_url);
+        const url_z = try gpa.dupeZ(u8, url);
         defer gpa.free(url_z);
-
         var berr: c.bson_error_t = undefined;
-        const uri = c.mongoc_uri_new_with_error(url_z.ptr, &berr);
-        if (uri == null) {
+        const uri = c.mongoc_uri_new_with_error(url_z, &berr) orelse {
             std.log.err("invalid MONGO_URL: {s}", .{std.mem.sliceTo(&berr.message, 0)});
             return error.BadMongoUrl;
-        }
+        };
         defer c.mongoc_uri_destroy(uri);
 
         // The pool copies the uri and is safe to use from many threads.
-        const pool = c.mongoc_client_pool_new(uri);
-        if (pool == null) return error.MongoInit;
-
-        const name_z = try gpa.dupeZ(u8, db_name);
-        errdefer gpa.free(name_z);
-
-        var db: Db = .{ .gpa = gpa, .pool = pool, .db_name = name_z };
+        const pool = c.mongoc_client_pool_new(uri) orelse return error.MongoInit;
+        var db: Db = .{ .io = io, .pool = pool, .name = try gpa.dupeZ(u8, name) };
         try db.ensureIndexes();
         return db;
     }
 
-    pub fn deinit(self: *Db) void {
+    pub fn deinit(self: *Db, gpa: Allocator) void {
         c.mongoc_client_pool_destroy(self.pool);
-        self.gpa.free(self.db_name);
+        gpa.free(self.name);
         c.mongoc_cleanup();
     }
 
+    /// Idempotent, so it runs on every startup.
     fn ensureIndexes(self: *Db) !void {
-        const client = c.mongoc_client_pool_pop(self.pool);
-        if (client == null) return error.DbUnavailable;
-        defer c.mongoc_client_pool_push(self.pool, client);
-        try self.runDbCommand(client,
-            \\{ "createIndexes": "users", "indexes": [ { "key": { "email": 1 }, "name": "email_unique", "unique": true } ] }
+        try self.command(
+            \\{ "createIndexes": "users", "indexes": [
+            \\  { "key": { "email": 1 }, "name": "email_unique", "unique": true } ] }
         );
-        try self.runDbCommand(client,
-            \\{ "createIndexes": "posts", "indexes": [ { "key": { "slug": 1 }, "name": "slug_unique", "unique": true } ] }
+        try self.command(
+            \\{ "createIndexes": "posts", "indexes": [
+            \\  { "key": { "slug": 1 }, "name": "slug_unique", "unique": true },
+            \\  { "key": { "published": 1, "created_at": -1 }, "name": "published_recent" } ] }
         );
     }
 
-    fn runDbCommand(self: *Db, client: [*c]c.mongoc_client_t, json: [:0]const u8) !void {
+    fn command(self: *Db, json: [:0]const u8) !void {
+        const client = c.mongoc_client_pool_pop(self.pool) orelse return error.DbUnavailable;
+        defer c.mongoc_client_pool_push(self.pool, client);
         var berr: c.bson_error_t = undefined;
-        const cmd = c.bson_new_from_json(json.ptr, -1, &berr);
-        if (cmd == null) return error.MongoInit;
+        const cmd = c.bson_new_from_json(json, -1, &berr) orelse return error.MongoInit;
         defer c.bson_destroy(cmd);
-        const database = c.mongoc_client_get_database(client, self.db_name.ptr);
-        defer c.mongoc_database_destroy(database);
-        if (!c.mongoc_database_write_command_with_opts(database, cmd, null, null, &berr)) {
-            std.log.err("mongo: {s}", .{std.mem.sliceTo(&berr.message, 0)});
-            return error.MongoInit;
-        }
+        if (!c.mongoc_client_write_command_with_opts(client, self.name, cmd, null, null, &berr))
+            return mongoError(berr);
     }
 
     /// A pooled client plus a collection handle; release with deinit.
     const Coll = struct {
-        db: *const Db,
-        client: [*c]c.mongoc_client_t,
-        coll: [*c]c.mongoc_collection_t,
+        pool: *c.mongoc_client_pool_t,
+        client: *c.mongoc_client_t,
+        coll: *c.mongoc_collection_t,
 
         fn deinit(self: Coll) void {
             c.mongoc_collection_destroy(self.coll);
-            c.mongoc_client_pool_push(self.db.pool, self.client);
+            c.mongoc_client_pool_push(self.pool, self.client);
         }
     };
 
-    fn collection(self: *const Db, name: [:0]const u8) !Coll {
-        const client = c.mongoc_client_pool_pop(self.pool);
-        if (client == null) return error.DbUnavailable;
+    fn collection(self: *Db, name: [:0]const u8) !Coll {
+        const client = c.mongoc_client_pool_pop(self.pool) orelse return error.DbUnavailable;
         return .{
-            .db = self,
+            .pool = self.pool,
             .client = client,
-            .coll = c.mongoc_client_get_collection(client, self.db_name.ptr, name.ptr),
+            .coll = c.mongoc_client_get_collection(client, self.name, name) orelse return error.DbUnavailable,
         };
     }
 
-    pub fn createUser(
-        self: *Db,
-        arena: Allocator,
-        email: []const u8,
-        password_hash: []const u8,
-        now: i64,
-    ) ![]const u8 {
+    /// error.Conflict if the email is taken.
+    pub fn createUser(self: *Db, arena: Allocator, email: []const u8, password_hash: []const u8) ![]const u8 {
         const h = try self.collection("users");
         defer h.deinit();
 
         var oid: c.bson_oid_t = undefined;
         c.bson_oid_init(&oid, null);
-
-        const doc = c.bson_new();
+        const doc = try newDoc();
         defer c.bson_destroy(doc);
         _ = c.bson_append_oid(doc, "_id", -1, &oid);
         appendStr(doc, "email", email);
         appendStr(doc, "password_hash", password_hash);
-        _ = c.bson_append_int64(doc, "created_at", -1, now);
+        _ = c.bson_append_date_time(doc, "created_at", -1, self.nowMillis());
 
         var berr: c.bson_error_t = undefined;
         if (!c.mongoc_collection_insert_one(h.coll, doc, null, null, &berr)) {
-            if (berr.code == 11000) return error.Conflict;
-            return logMongo(berr);
+            if (berr.code == duplicate_key) return error.Conflict;
+            return mongoError(berr);
         }
         return oidHex(arena, &oid);
     }
@@ -148,16 +131,16 @@ pub const Db = struct {
         const h = try self.collection("users");
         defer h.deinit();
 
-        const filter = c.bson_new();
+        const filter = try newDoc();
         defer c.bson_destroy(filter);
         appendStr(filter, "email", email);
 
-        const doc = (try findOne(h.coll, filter, null)) orelse return null;
+        const doc = (try findOne(h.coll, filter)) orelse return null;
         defer c.bson_destroy(doc);
-        return User{
-            .id = (try docOidHex(arena, doc, "_id")) orelse return error.CorruptDoc,
-            .email = (try docStr(arena, doc, "email")) orelse return error.CorruptDoc,
-            .password_hash = (try docStr(arena, doc, "password_hash")) orelse return error.CorruptDoc,
+        return .{
+            .id = try getOid(arena, doc, "_id"),
+            .email = try getStr(arena, doc, "email"),
+            .password_hash = try getStr(arena, doc, "password_hash"),
         };
     }
 
@@ -166,70 +149,113 @@ pub const Db = struct {
         arena: Allocator,
         author_id: []const u8,
         title: []const u8,
-        slug: []const u8,
+        base_slug: []const u8,
         body: []const u8,
-        now: i64,
     ) !Post {
-        var author_oid: c.bson_oid_t = undefined;
-        try oidFromHex(arena, &author_oid, author_id);
+        var author: c.bson_oid_t = undefined;
+        try parseOid(&author, author_id);
+        var oid: c.bson_oid_t = undefined;
+        c.bson_oid_init(&oid, null);
+        const now = self.nowMillis();
 
         const h = try self.collection("posts");
         defer h.deinit();
 
-        var oid: c.bson_oid_t = undefined;
-        c.bson_oid_init(&oid, null);
+        var n: usize = 1;
+        while (true) : (n += 1) {
+            const slug = try numberedSlug(arena, base_slug, n);
+            const doc = try newDoc();
+            defer c.bson_destroy(doc);
+            _ = c.bson_append_oid(doc, "_id", -1, &oid);
+            appendStr(doc, "title", title);
+            appendStr(doc, "slug", slug);
+            appendStr(doc, "body", body);
+            _ = c.bson_append_bool(doc, "published", -1, false);
+            _ = c.bson_append_oid(doc, "author_id", -1, &author);
+            _ = c.bson_append_date_time(doc, "created_at", -1, now);
+            _ = c.bson_append_date_time(doc, "updated_at", -1, now);
 
-        const doc = c.bson_new();
-        defer c.bson_destroy(doc);
-        _ = c.bson_append_oid(doc, "_id", -1, &oid);
-        appendStr(doc, "title", title);
-        appendStr(doc, "slug", slug);
-        appendStr(doc, "body", body);
-        _ = c.bson_append_bool(doc, "published", -1, false);
-        _ = c.bson_append_oid(doc, "author_id", -1, &author_oid);
-        _ = c.bson_append_int64(doc, "created_at", -1, now);
-        _ = c.bson_append_int64(doc, "updated_at", -1, now);
-
-        var berr: c.bson_error_t = undefined;
-        if (!c.mongoc_collection_insert_one(h.coll, doc, null, null, &berr)) {
-            if (berr.code == 11000) return error.Conflict;
-            return logMongo(berr);
+            var berr: c.bson_error_t = undefined;
+            if (!c.mongoc_collection_insert_one(h.coll, doc, null, null, &berr)) {
+                if (berr.code == duplicate_key and n < 50) continue;
+                return mongoError(berr);
+            }
+            return .{
+                .id = try oidHex(arena, &oid),
+                .title = title,
+                .slug = slug,
+                .body = body,
+                .published = false,
+                .author_id = author_id,
+                .created_at = try rfc3339(arena, now),
+                .updated_at = try rfc3339(arena, now),
+            };
         }
-        return Post{
-            .id = try oidHex(arena, &oid),
-            .title = title,
-            .slug = slug,
-            .body = body,
-            .published = false,
-            .author_id = author_id,
-            .created_at = now,
-            .updated_at = now,
-        };
+    }
+
+    /// Saves the post's title, body and published flag. Its slug gets `-2`,
+    /// `-3`, ... appended while it collides; `slug` and `updated_at` are
+    /// updated in place.
+    pub fn updatePost(self: *Db, arena: Allocator, post: *Post) !void {
+        var oid: c.bson_oid_t = undefined;
+        try parseOid(&oid, post.id);
+        const now = self.nowMillis();
+
+        const h = try self.collection("posts");
+        defer h.deinit();
+
+        const filter = try newDoc();
+        defer c.bson_destroy(filter);
+        _ = c.bson_append_oid(filter, "_id", -1, &oid);
+
+        const base_slug = post.slug;
+        var n: usize = 1;
+        while (true) : (n += 1) {
+            const slug = try numberedSlug(arena, base_slug, n);
+            const update = try newDoc();
+            defer c.bson_destroy(update);
+            var set: c.bson_t = undefined;
+            _ = c.bson_append_document_begin(update, "$set", -1, &set);
+            appendStr(&set, "title", post.title);
+            appendStr(&set, "slug", slug);
+            appendStr(&set, "body", post.body);
+            _ = c.bson_append_bool(&set, "published", -1, post.published);
+            _ = c.bson_append_date_time(&set, "updated_at", -1, now);
+            _ = c.bson_append_document_end(update, &set);
+
+            var berr: c.bson_error_t = undefined;
+            if (!c.mongoc_collection_update_one(h.coll, filter, update, null, null, &berr)) {
+                if (berr.code == duplicate_key and n < 50) continue;
+                return mongoError(berr);
+            }
+            post.slug = slug;
+            post.updated_at = try rfc3339(arena, now);
+            return;
+        }
     }
 
     pub fn listPublished(self: *Db, arena: Allocator) ![]Post {
         const h = try self.collection("posts");
         defer h.deinit();
 
-        const filter = c.bson_new();
+        const filter = try newDoc();
         defer c.bson_destroy(filter);
         _ = c.bson_append_bool(filter, "published", -1, true);
-
         var berr: c.bson_error_t = undefined;
-        const opts = c.bson_new_from_json(
-            \\{ "sort": { "created_at": -1 } }
-        , -1, &berr);
+        const opts = c.bson_new_from_json("{ \"sort\": { \"created_at\": -1 } }", -1, &berr) orelse
+            return error.OutOfMemory;
         defer c.bson_destroy(opts);
 
-        const cursor = c.mongoc_collection_find_with_opts(h.coll, filter, opts, null);
+        const cursor = c.mongoc_collection_find_with_opts(h.coll, filter, opts, null) orelse
+            return error.DbUnavailable;
         defer c.mongoc_cursor_destroy(cursor);
 
         var out: std.ArrayList(Post) = .empty;
-        var doc: [*c]const c.bson_t = null;
-        while (c.mongoc_cursor_next(cursor, &doc)) {
-            try out.append(arena, try parsePost(arena, doc));
+        var doc: ?*const c.bson_t = null;
+        while (c.mongoc_cursor_next(cursor, @ptrCast(&doc))) {
+            try out.append(arena, try parsePost(arena, doc.?));
         }
-        if (c.mongoc_cursor_error(cursor, &berr)) return logMongo(berr);
+        if (c.mongoc_cursor_error(cursor, &berr)) return mongoError(berr);
         return out.items;
     }
 
@@ -237,12 +263,12 @@ pub const Db = struct {
         const h = try self.collection("posts");
         defer h.deinit();
 
-        const filter = c.bson_new();
+        const filter = try newDoc();
         defer c.bson_destroy(filter);
         appendStr(filter, "slug", slug);
         _ = c.bson_append_bool(filter, "published", -1, true);
 
-        const doc = (try findOne(h.coll, filter, null)) orelse return null;
+        const doc = (try findOne(h.coll, filter)) orelse return null;
         defer c.bson_destroy(doc);
         return try parsePost(arena, doc);
     }
@@ -251,146 +277,127 @@ pub const Db = struct {
     /// ObjectId hex string simply does not name a post.
     pub fn getPostById(self: *Db, arena: Allocator, id_param: []const u8) !?Post {
         var oid: c.bson_oid_t = undefined;
-        oidFromHex(arena, &oid, id_param) catch return null;
+        parseOid(&oid, id_param) catch return null;
 
         const h = try self.collection("posts");
         defer h.deinit();
 
-        const filter = c.bson_new();
+        const filter = try newDoc();
         defer c.bson_destroy(filter);
         _ = c.bson_append_oid(filter, "_id", -1, &oid);
 
-        const doc = (try findOne(h.coll, filter, null)) orelse return null;
+        const doc = (try findOne(h.coll, filter)) orelse return null;
         defer c.bson_destroy(doc);
         return try parsePost(arena, doc);
     }
 
-    pub fn updatePost(
-        self: *Db,
-        arena: Allocator,
-        id: []const u8,
-        changes: PostUpdate,
-        now: i64,
-    ) !Post {
+    pub fn deletePost(self: *Db, id: []const u8) !void {
         var oid: c.bson_oid_t = undefined;
-        try oidFromHex(arena, &oid, id);
+        try parseOid(&oid, id);
 
         const h = try self.collection("posts");
         defer h.deinit();
 
-        const filter = c.bson_new();
-        defer c.bson_destroy(filter);
-        _ = c.bson_append_oid(filter, "_id", -1, &oid);
-
-        const update = c.bson_new();
-        defer c.bson_destroy(update);
-        var set_doc: c.bson_t = undefined;
-        _ = c.bson_append_document_begin(update, "$set", -1, &set_doc);
-        if (changes.title) |title| appendStr(&set_doc, "title", title);
-        if (changes.body) |body| appendStr(&set_doc, "body", body);
-        if (changes.published) |published| _ = c.bson_append_bool(&set_doc, "published", -1, published);
-        _ = c.bson_append_int64(&set_doc, "updated_at", -1, now);
-        _ = c.bson_append_document_end(update, &set_doc);
-
-        var berr: c.bson_error_t = undefined;
-        if (!c.mongoc_collection_update_one(h.coll, filter, update, null, null, &berr))
-            return logMongo(berr);
-
-        return (try self.getPostById(arena, id)) orelse error.NotFound;
-    }
-
-    pub fn deletePost(self: *Db, arena: Allocator, id: []const u8) !void {
-        var oid: c.bson_oid_t = undefined;
-        try oidFromHex(arena, &oid, id);
-
-        const h = try self.collection("posts");
-        defer h.deinit();
-
-        const filter = c.bson_new();
+        const filter = try newDoc();
         defer c.bson_destroy(filter);
         _ = c.bson_append_oid(filter, "_id", -1, &oid);
 
         var berr: c.bson_error_t = undefined;
         if (!c.mongoc_collection_delete_one(h.coll, filter, null, null, &berr))
-            return logMongo(berr);
+            return mongoError(berr);
+    }
+
+    fn nowMillis(self: *Db) i64 {
+        return std.Io.Clock.now(.real, self.io).toMilliseconds();
     }
 };
 
-/// Runs the query and returns a copy of the first document (caller destroys),
-/// so the cursor can be closed before parsing.
-fn findOne(
-    coll: [*c]c.mongoc_collection_t,
-    filter: [*c]const c.bson_t,
-    opts: [*c]const c.bson_t,
-) !?*c.bson_t {
-    const cursor = c.mongoc_collection_find_with_opts(coll, filter, opts, null);
+const duplicate_key = 11000;
+
+fn newDoc() !*c.bson_t {
+    return c.bson_new() orelse error.OutOfMemory;
+}
+
+/// Runs the query and returns a copy of the first document (caller destroys
+/// it), so the cursor can be closed before parsing.
+fn findOne(coll: *c.mongoc_collection_t, filter: *const c.bson_t) !?*c.bson_t {
+    const cursor = c.mongoc_collection_find_with_opts(coll, filter, null, null) orelse
+        return error.DbUnavailable;
     defer c.mongoc_cursor_destroy(cursor);
-    var doc: [*c]const c.bson_t = null;
-    if (c.mongoc_cursor_next(cursor, &doc)) return c.bson_copy(doc);
+    var doc: ?*const c.bson_t = null;
+    if (c.mongoc_cursor_next(cursor, @ptrCast(&doc))) return c.bson_copy(doc);
     var berr: c.bson_error_t = undefined;
-    if (c.mongoc_cursor_error(cursor, &berr)) return logMongo(berr);
+    if (c.mongoc_cursor_error(cursor, &berr)) return mongoError(berr);
     return null;
 }
 
-fn parsePost(arena: Allocator, doc: [*c]const c.bson_t) !Post {
+fn parsePost(arena: Allocator, doc: *const c.bson_t) !Post {
     return .{
-        .id = (try docOidHex(arena, doc, "_id")) orelse return error.CorruptDoc,
-        .title = (try docStr(arena, doc, "title")) orelse return error.CorruptDoc,
-        .slug = (try docStr(arena, doc, "slug")) orelse return error.CorruptDoc,
-        .body = (try docStr(arena, doc, "body")) orelse return error.CorruptDoc,
-        .published = docBool(doc, "published") orelse false,
-        .author_id = (try docOidHex(arena, doc, "author_id")) orelse return error.CorruptDoc,
-        .created_at = docInt(doc, "created_at") orelse 0,
-        .updated_at = docInt(doc, "updated_at") orelse 0,
+        .id = try getOid(arena, doc, "_id"),
+        .title = try getStr(arena, doc, "title"),
+        .slug = try getStr(arena, doc, "slug"),
+        .body = try getStr(arena, doc, "body"),
+        .published = c.bson_iter_as_bool(&try find(doc, "published")),
+        .author_id = try getOid(arena, doc, "author_id"),
+        .created_at = try rfc3339(arena, c.bson_iter_date_time(&try find(doc, "created_at"))),
+        .updated_at = try rfc3339(arena, c.bson_iter_date_time(&try find(doc, "updated_at"))),
     };
 }
 
-fn appendStr(doc: [*c]c.bson_t, key: [:0]const u8, value: []const u8) void {
-    _ = c.bson_append_utf8(doc, key.ptr, -1, value.ptr, @intCast(value.len));
+fn appendStr(doc: *c.bson_t, key: [:0]const u8, value: []const u8) void {
+    _ = c.bson_append_utf8(doc, key, -1, value.ptr, @intCast(value.len));
 }
 
-fn docStr(arena: Allocator, doc: [*c]const c.bson_t, key: [:0]const u8) !?[]const u8 {
+fn find(doc: *const c.bson_t, key: [:0]const u8) !c.bson_iter_t {
     var iter: c.bson_iter_t = undefined;
-    if (!c.bson_iter_init_find(&iter, doc, key.ptr)) return null;
+    if (!c.bson_iter_init_find(&iter, doc, key)) return error.CorruptDocument;
+    return iter;
+}
+
+fn getStr(arena: Allocator, doc: *const c.bson_t, key: [:0]const u8) ![]const u8 {
+    var iter = try find(doc, key);
     var len: u32 = 0;
-    const ptr = c.bson_iter_utf8(&iter, &len);
-    if (ptr == null) return null;
-    return try arena.dupe(u8, ptr[0..len]);
+    const ptr = c.bson_iter_utf8(&iter, &len) orelse return error.CorruptDocument;
+    return arena.dupe(u8, ptr[0..len]);
 }
 
-fn docInt(doc: [*c]const c.bson_t, key: [:0]const u8) ?i64 {
-    var iter: c.bson_iter_t = undefined;
-    if (!c.bson_iter_init_find(&iter, doc, key.ptr)) return null;
-    return c.bson_iter_as_int64(&iter);
+fn getOid(arena: Allocator, doc: *const c.bson_t, key: [:0]const u8) ![]const u8 {
+    var iter = try find(doc, key);
+    return oidHex(arena, c.bson_iter_oid(&iter) orelse return error.CorruptDocument);
 }
 
-fn docBool(doc: [*c]const c.bson_t, key: [:0]const u8) ?bool {
-    var iter: c.bson_iter_t = undefined;
-    if (!c.bson_iter_init_find(&iter, doc, key.ptr)) return null;
-    return c.bson_iter_bool(&iter);
-}
-
-fn docOidHex(arena: Allocator, doc: [*c]const c.bson_t, key: [:0]const u8) !?[]const u8 {
-    var iter: c.bson_iter_t = undefined;
-    if (!c.bson_iter_init_find(&iter, doc, key.ptr)) return null;
-    const oid = c.bson_iter_oid(&iter);
-    if (oid == null) return null;
-    return try oidHex(arena, oid);
-}
-
-fn oidHex(arena: Allocator, oid: [*c]const c.bson_oid_t) ![]const u8 {
+fn oidHex(arena: Allocator, oid: *const c.bson_oid_t) ![]const u8 {
     var buf: [25]u8 = undefined;
     c.bson_oid_to_string(oid, &buf);
     return arena.dupe(u8, buf[0..24]);
 }
 
-fn oidFromHex(arena: Allocator, oid: *c.bson_oid_t, hex: []const u8) !void {
+fn parseOid(oid: *c.bson_oid_t, hex: []const u8) !void {
     if (!c.bson_oid_is_valid(hex.ptr, hex.len)) return error.InvalidId;
-    const hex_z = try arena.dupeZ(u8, hex);
-    c.bson_oid_init_from_string(oid, hex_z.ptr);
+    var buf: [25]u8 = undefined;
+    @memcpy(buf[0..24], hex);
+    buf[24] = 0;
+    c.bson_oid_init_from_string(oid, &buf);
 }
 
-fn logMongo(berr: c.bson_error_t) anyerror {
+/// `base`, then `base-2`, `base-3`, ... for retries after a slug collision.
+fn numberedSlug(arena: Allocator, base: []const u8, n: usize) ![]const u8 {
+    if (n == 1) return base;
+    return std.fmt.allocPrint(arena, "{s}-{d}", .{ base, n });
+}
+
+fn rfc3339(arena: Allocator, millis: i64) ![]const u8 {
+    const t: std.time.epoch.EpochSeconds = .{ .secs = @intCast(@divFloor(millis, 1000)) };
+    const date = t.getEpochDay().calculateYearDay();
+    const month_day = date.calculateMonthDay();
+    const time = t.getDaySeconds();
+    return std.fmt.allocPrint(arena, "{d:0>4}-{d:0>2}-{d:0>2}T{d:0>2}:{d:0>2}:{d:0>2}Z", .{
+        date.year,              month_day.month.numeric(), month_day.day_index + 1,
+        time.getHoursIntoDay(), time.getMinutesIntoHour(), time.getSecondsIntoMinute(),
+    });
+}
+
+fn mongoError(berr: c.bson_error_t) anyerror {
     std.log.err("mongo: {s}", .{std.mem.sliceTo(&berr.message, 0)});
     return error.DbError;
 }

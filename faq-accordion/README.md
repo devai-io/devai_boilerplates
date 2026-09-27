@@ -1,70 +1,47 @@
 # faq-accordion
 
-> A classic FAQ accordion — click a question, its answer slides open and the
-> others close. Accessible, animated, no libraries.
+A classic FAQ: click a question and its answer slides open while the others
+close. It teaches showing and hiding content the accessible way — real
+`<button>`s, `aria-expanded`, and a pure-CSS animation.
 
-**What you'll build:** a list of five questions about learning to code. Click any
-question and its answer slides open while the others fold away, with the little
-"+" spinning into an "×". Works with a mouse, a tap, or the keyboard.
+## Run
 
-**What you'll learn:** how to show and hide sections the accessible way — using
-real `<button>` headers, the `aria-expanded` attribute so screen readers keep up,
-and a CSS `max-height` transition for a smooth open/close animation.
+Get it: `git clone https://git.devai.io/templates/faq-accordion.git`
 
-## Run it
-
-**The easy way:** double-click `index.html`. It opens in your browser and works.
-There is nothing to install and no build step.
+Double-click `index.html` — it opens in your browser and works. Nothing to
+install, no build step.
 
 Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-Each item is a `<button>` (the question) followed by a `<div>` (the answer). The
-answer starts collapsed with `max-height: 0; overflow: hidden`. Add one class and
-it expands:
+## How it works
 
-```css
-.answer { max-height: 0; overflow: hidden; transition: max-height 0.3s ease; }
-.item.open .answer { max-height: 200px; }
-```
+Each question is a real `<button>`, so mouse, touch and keyboard (Tab, then
+Enter or Space) all work without extra code. Its `aria-expanded` attribute is
+the state: screen readers announce it, and `aria-controls` points at the answer
+it opens.
 
-JavaScript's only job is to add or remove that `open` class — and to flip
-`aria-expanded` so the button honestly reports its state. To make it an
-_accordion_, we close everything before opening the one you clicked.
+On click, `app.js` closes every item, then opens the one you clicked (unless it
+was already open). Opening means two things: set `aria-expanded="true"`, and
+add an `open` class to the item. The CSS does the rest — the answer animates
+`max-height` from `0` to `200px`, and `visibility: hidden` keeps closed answers
+out of reach of screen readers and the Tab key.
 
-## How the code works
+Try it: let several answers stay open by deleting `questions.forEach(close)`,
+open the first one on load with `open(questions[0])`, or add a question by
+copying an `.item` block (with a new `id` / `aria-controls` pair).
 
-- **`document.querySelectorAll(".question")`** grabs all five question buttons at
-  once, as a list we can loop over.
-- **`open` / `close`** set `aria-expanded` and add/remove the `open` class on the
-  button's `parentElement` (the whole `.item`).
-- **The click handler** reads whether the item is already open, closes them all,
-  then reopens the clicked one _unless_ it was the one already open (so a second
-  click closes it).
-- **Why real `<button>`s?** They're focusable and respond to Enter/Space for free,
-  so keyboard users get a working accordion with no extra code.
-- **The `+` → `×`** is pure CSS: `transform: rotate(45deg)` on the icon when open.
-
-## Try changing something
-
-- Let multiple answers stay open at once: delete the `questions.forEach(close)` line.
-- Open the first item on load: call `open(questions[0])` at the bottom of `app.js`.
-- Add a sixth question — just copy one `.item` block in `index.html` (give it a
-  new `id`/`aria-controls`).
-
-## Files
+## Layout
 
 ```
-index.html      the five question/answer items
-styles.css      how it looks (light + dark) and the open/close animation
-app.js          toggle one item, close the rest
-Dockerfile      optional: serve it with nginx
-compose.yaml    optional: docker compose up --build
+index.html   the questions and answers
+app.js       open(), close() and the click handler
+styles.css   the look and the slide animation; follows light or dark mode
 ```
 
 ## Deploy
@@ -76,4 +53,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
-JavaScript, one concept at a time.
+JavaScript, one concept at a time. Next up:
+[stopwatch](https://git.devai.io/templates/stopwatch).

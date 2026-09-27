@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Dark Mode Toggle</title>
     <link rel="stylesheet" href="styles.css" />
+    <script>
+      // Runs before the first paint, so a saved theme never flashes the wrong colors.
+      if (localStorage.getItem("theme")) document.documentElement.dataset.theme = localStorage.getItem("theme");
+    </script>
   </head>
   <body>
     <main class="card">
@@ -13,7 +17,7 @@
 
       <button id="toggle" class="btn" type="button" aria-pressed="false">
         <span id="toggleIcon" aria-hidden="true">🌙</span>
-        <span id="toggleText">Dark</span>
+        <span>Dark mode</span>
       </button>
 
       <section class="demo">

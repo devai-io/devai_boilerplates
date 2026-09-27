@@ -1,4 +1,3 @@
-# Nothing to build — just hand the static files to nginx and serve them.
-FROM nginx:alpine
-COPY . /usr/share/nginx/html
-EXPOSE 80
+FROM nginxinc/nginx-unprivileged:1.30-alpine
+COPY index.html styles.css app.js /usr/share/nginx/html/
+EXPOSE 8080

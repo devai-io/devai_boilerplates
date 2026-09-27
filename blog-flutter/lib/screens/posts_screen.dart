@@ -103,7 +103,7 @@ class _PostsScreenState extends State<PostsScreen> {
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         itemCount: posts.length,
-        separatorBuilder: (_, __) => const Divider(height: 32),
+        separatorBuilder: (_, _) => const Divider(height: 32),
         itemBuilder: (context, index) {
           final post = posts[index];
           return InkWell(
@@ -116,17 +116,23 @@ class _PostsScreenState extends State<PostsScreen> {
                 children: [
                   Text(
                     formatDate(post.publishedAt),
-                    style: theme.textTheme.labelSmall!
-                        .copyWith(color: theme.colorScheme.onSurfaceVariant, letterSpacing: 1),
+                    style: theme.textTheme.labelSmall!.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      letterSpacing: 1,
+                    ),
                   ),
                   const SizedBox(height: 4),
-                  Text(post.title,
-                      style: theme.textTheme.titleLarge!.copyWith(fontWeight: FontWeight.w600)),
+                  Text(
+                    post.title,
+                    style: theme.textTheme.titleLarge!.copyWith(fontWeight: FontWeight.w600),
+                  ),
                   const SizedBox(height: 6),
                   Text(
                     post.excerpt,
-                    style: theme.textTheme.bodyMedium!
-                        .copyWith(color: theme.colorScheme.onSurfaceVariant, height: 1.5),
+                    style: theme.textTheme.bodyMedium!.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.5,
+                    ),
                   ),
                 ],
               ),
@@ -138,7 +144,20 @@ class _PostsScreenState extends State<PostsScreen> {
   }
 }
 
-const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const _months = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
 String formatDate(String iso) {
   final d = DateTime.tryParse(iso);

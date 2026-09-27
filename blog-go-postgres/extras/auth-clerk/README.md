@@ -5,16 +5,17 @@ session tokens. Users sign up and sign in through Clerk (hosted pages or one of
 its frontend SDKs); this API only verifies the session JWT Clerk issues.
 
 `clerk.go` validates `Authorization: Bearer <token>` against your Clerk
-instance's JWKS endpoint (RS256) and exposes the Clerk user id via `userID(r)`
-— the same helper the local setup provides, so the post handlers keep working.
+instance's JWKS endpoint (RS256 signature, issuer, expiry, `azp`) and exposes
+the Clerk user id via `userID(r)` — the same helper the local setup provides, so the post handlers keep working.
 
 ## Swap steps
 
 1. Copy `clerk.go` into the project root and change `package clerkauth` to
    `package main`.
 2. Delete `auth.go` — register, login, and HS256 tokens are Clerk's job now.
-3. In `main.go`, drop the `/auth/register` and `/auth/login` routes and wrap
-   the protected routes with the Clerk middleware:
+3. In `main.go`, drop the `AUTH_SECRET` lookup (and the `secret` field on
+   `app`), drop the `/auth/register` and `/auth/login` routes, and wrap the
+   protected routes with the Clerk middleware:
 
    ```go
    requireAuth := newClerkAuth()
@@ -25,18 +26,21 @@ instance's JWKS endpoint (RS256) and exposes the Clerk user id via `userID(r)`
 
 4. Author ids are now Clerk user ids (strings like `user_2f...`), not integers:
    - in `schema.sql`, drop the `users` table and change `posts.author_id` to
-     `TEXT NOT NULL` (no foreign key) — then reset the database (e.g.
-     `docker compose down -v`) so the new schema applies on next start;
+     `TEXT NOT NULL` (no foreign key) — then reset the database
+     (`docker compose down`, delete `./data`) so the new schema applies;
    - in `posts.go`, change the `post.AuthorID` field to `string` and use
      `userID(r)` directly instead of `strconv.ParseInt(userID(r), 10, 64)`.
-5. Environment: remove `AUTH_SECRET`, add your instance's issuer:
+5. Environment: remove `AUTH_SECRET`, add your instance's issuer and the
+   origins allowed to mint tokens for this API (checked against the `azp`
+   claim; leave it unset to skip the check):
 
    ```
    CLERK_ISSUER=https://your-app.clerk.accounts.dev
+   CLERK_AUTHORIZED_PARTIES=https://your-site.com,http://localhost:5173
    ```
 
-   Find it in the Clerk dashboard under API keys; production instances use
-   your own domain, e.g. `https://clerk.your-site.com`.
+   The issuer is your Frontend API URL (Clerk dashboard → API keys);
+   production instances use your own domain, e.g. `https://clerk.your-site.com`.
 
 After the swap `go vet ./...` should pass and every `(auth)` route expects a
 Clerk session JWT.

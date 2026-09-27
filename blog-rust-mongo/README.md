@@ -1,105 +1,87 @@
 # blog-rust-mongo
 
-A minimalist blog engine API in Rust: axum + tokio, MongoDB via the official
-`mongodb` driver, argon2 password hashing, HS256 JWT auth.
+The blog engine API in Rust on MongoDB: axum + tokio, the official `mongodb`
+driver, argon2 password hashing and HS256 JWTs. Same API as the Postgres
+flavor — documents instead of rows, indexes instead of a schema.
 
-## Requirements
+## Run
 
-- Docker + Docker Compose (quickest path), or
-- Rust 1.85+ and MongoDB 6+
+    git clone https://git.devai.io/templates/blog-rust-mongo.git
+    cd blog-rust-mongo
+    docker compose up --build
 
-## Quickstart
+The API answers on http://localhost:8080 (`curl localhost:8080/health` → `ok`).
+MongoDB keeps its state in `./data/mongo`; the unique indexes on `users.email`
+and `posts.slug` are ensured on every start, so there is no migrate step.
 
-With Docker:
+Without Docker: point `MONGO_URL` at any MongoDB, copy `.env.example` to
+`.env` (it is loaded on start), then `cargo run` (Rust 1.88+).
+
+## How it works
+
+| Method | Path             | Auth | Result                                                   |
+|--------|------------------|------|----------------------------------------------------------|
+| GET    | `/health`        | —    | `200 ok`                                                 |
+| POST   | `/auth/register` | —    | `{email, password}` → `201 {id, email}`, `409` if taken  |
+| POST   | `/auth/login`    | —    | `{email, password}` → `200 {token}`, `401` if wrong      |
+| GET    | `/posts`         | —    | `200 [{id, title, slug, excerpt, published_at}]`, published only |
+| GET    | `/posts/{slug}`  | —    | `200` full published post, or `404`                      |
+| POST   | `/posts`         | JWT  | `{title, body}` → `201` full post (a draft)              |
+| PUT    | `/posts/{id}`    | JWT  | `{title?, body?, published?}` → `200` full post          |
+| DELETE | `/posts/{id}`    | JWT  | `204`                                                    |
+
+- **Auth** — register stores an argon2id hash (passwords of 8+ characters);
+  login returns an HS256 JWT signed with `AUTH_SECRET` (`sub` = user id,
+  7-day expiry). Send it as `Authorization: Bearer <token>`. The `AuthUser`
+  extractor in `src/auth.rs` accepts only HS256, requires `exp` and `sub`,
+  and rejects expired tokens.
+- **Ownership** — only a post's author may update or delete it; anyone else
+  gets `403`.
+- **Slugs** come from the title (`"Hello, World!"` → `hello-world`); a
+  duplicate title gets `-2`, `-3`, … Retitling a post regenerates its slug.
+- **Drafts** — new posts are unpublished; `PUT {"published": true}` publishes.
+  Public endpoints only return published posts. `excerpt` is the first 200
+  characters of the body; `published_at` is the post's creation time.
+- **Ids** are MongoDB ObjectIds as 24-character hex strings.
+- **Errors** are `{"error": "message"}` with a matching status code.
+
+A full round trip:
 
 ```sh
-docker compose up --build
+curl -s localhost:8080/auth/register -H 'content-type: application/json' \
+  -d '{"email":"me@example.com","password":"sup3rsecret"}'
+TOKEN=$(curl -s localhost:8080/auth/login -H 'content-type: application/json' \
+  -d '{"email":"me@example.com","password":"sup3rsecret"}' | jq -r .token)
+ID=$(curl -s localhost:8080/posts -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"title":"Hello, World!","body":"First post."}' | jq -r .id)
+curl -s -X PUT localhost:8080/posts/$ID -H "Authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"published":true}'
+curl -s localhost:8080/posts/hello-world
 ```
 
-The API listens on http://localhost:8080; MongoDB is published on localhost:27017.
-
-Locally:
-
-```sh
-cp .env.example .env      # adjust MONGO_URL if needed
-docker compose up -d db   # or point MONGO_URL at your own MongoDB
-cargo run
-```
-
-Unique indexes on `users.email` and `posts.slug` (plus a list index on
-`published` + `created_at`) are created on startup; index creation is
-idempotent, so restarts are safe.
-
-## Try it
-
-```sh
-curl localhost:8080/health
-
-curl -X POST localhost:8080/auth/register -H 'content-type: application/json' \
-  -d '{"email":"me@example.com","password":"supersecret"}'
-
-TOKEN=$(curl -sX POST localhost:8080/auth/login -H 'content-type: application/json' \
-  -d '{"email":"me@example.com","password":"supersecret"}' | jq -r .token)
-
-POST_ID=$(curl -sX POST localhost:8080/posts -H "authorization: Bearer $TOKEN" \
-  -H 'content-type: application/json' \
-  -d '{"title":"Hello World","body":"My first post."}' | jq -r .id)
-
-curl -X PUT localhost:8080/posts/$POST_ID -H "authorization: Bearer $TOKEN" \
-  -H 'content-type: application/json' -d '{"published":true}'
-
-curl localhost:8080/posts
-curl localhost:8080/posts/hello-world
-```
-
-## API
-
-| Method | Path            | Auth   | Description                                     |
-|--------|-----------------|--------|-------------------------------------------------|
-| GET    | `/health`       | –      | Liveness check, returns `ok`                    |
-| POST   | `/auth/register`| –      | `{email, password}` → `201 {id, email}`         |
-| POST   | `/auth/login`   | –      | `{email, password}` → `200 {token}`             |
-| GET    | `/posts`        | –      | Published posts: `{id,title,slug,excerpt,published_at}` |
-| GET    | `/posts/{slug}` | –      | Full post by slug, `404` if unknown/unpublished |
-| POST   | `/posts`        | Bearer | `{title, body}` → `201` full post (draft)       |
-| PUT    | `/posts/{id}`   | Bearer | `{title?, body?, published?}` → `200` full post |
-| DELETE | `/posts/{id}`   | Bearer | `204` on success                                |
-
-Slugs are derived from the title (`Hello World` → `hello-world`); collisions get
-a random suffix. `excerpt` is the first 200 characters of the body. Ids are
-ObjectId hex strings. Errors are always JSON: `{"error": "message"}`.
-
-## Project layout
+## Layout
 
 ```
 src/main.rs    env, router, startup
-src/db.rs      MongoDB client, typed collections, startup indexes
-src/auth.rs    register/login, argon2 hashing, JWT issue/verify (AuthUser extractor)
-src/posts.rs   post CRUD + slug generation
-src/error.rs   JSON error type and JSON body extractor
+src/db.rs      MongoDB client, collections + indexes on startup
+src/auth.rs    register/login, argon2, JWT issue + the AuthUser extractor
+src/posts.rs   post handlers, slugs, ownership checks
+src/error.rs   {"error": ...} responses and a JSON extractor that uses them
+extras/        drop-in Clerk and Auth0 verifiers, each with swap steps
 ```
 
-## How auth works
+Local auth lives entirely in `src/auth.rs`, so it can be replaced wholesale:
+`extras/auth-clerk/` and `extras/auth-auth0/` each hold one JWKS-based RS256
+verifier and a README with the exact steps.
 
-`POST /auth/register` stores an argon2id hash of the password. `POST /auth/login`
-verifies it and returns a JWT — HS256 signed with `AUTH_SECRET`, `sub` = user id,
-7-day expiry. Protected routes read `Authorization: Bearer <token>` through the
-`AuthUser` extractor in `src/auth.rs`. Posts can only be updated or deleted by
-their author.
+## Deploy
 
-## Switching auth providers
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
 
-The local email+password flow is self-contained and easy to swap for hosted
-auth. Working drop-in verifiers, each with exact swap steps in its README:
-
-- `extras/auth-clerk/` — validate Clerk session JWTs via JWKS
-- `extras/auth-auth0/` — validate Auth0 access tokens (issuer + audience)
-
-## Configuration
-
-| Env           | Default | Meaning                                        |
-|---------------|---------|------------------------------------------------|
-| `PORT`        | `8080`  | Listen port                                    |
-| `MONGO_URL`   | –       | MongoDB connection string                      |
-| `MONGO_DB`    | –       | Database name                                  |
-| `AUTH_SECRET` | –       | HS256 signing key; use a long random value     |
+---
+Part of [devai.io](https://devai.io) — the blog engine series: one API
+contract, eight backends (`blog-{go,rust,zig,python}-{postgres,mongo}`) and
+the `blog-react`, `blog-angular`, `blog-dart` and `blog-flutter` frontends.

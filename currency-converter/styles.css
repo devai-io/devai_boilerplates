@@ -1,7 +1,5 @@
-/* A small, self-contained stylesheet. No frameworks, no build step.
-   Colors adapt to the visitor's light/dark preference automatically. */
-
 :root {
+  color-scheme: light dark;
   --accent: #14b8a6;
   --bg: #0b0c0e;
   --surface: #14161a;
@@ -77,12 +75,6 @@ label {
   background: transparent;
   border: 1px solid var(--border);
   border-radius: 12px;
-}
-
-/* Native dropdowns render their menu in the OS colors; keep the closed control
-   readable in dark mode too. */
-.select option {
-  color: #14161a;
 }
 
 .input:focus,

@@ -1,8 +1,8 @@
-// Notice this file calls "/api/apod" — our OWN server — not nasa.gov directly.
-// The browser never sees the API key. That's the point of having a backend.
-
+// This page asks "/api/apod" — its OWN server — never nasa.gov. The browser
+// never sees the API key; that's the whole point of having a backend.
 const statusEl = document.getElementById("status");
 const figure = document.getElementById("figure");
+const image = document.getElementById("image");
 const reloadBtn = document.getElementById("reload");
 
 async function loadPhoto() {
@@ -10,28 +10,34 @@ async function loadPhoto() {
   statusEl.hidden = false;
   figure.hidden = true;
 
+  let res;
   try {
-    const res = await fetch("/api/apod");
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || "Request failed");
-
-    if (!data.image) {
-      statusEl.textContent = `Today's entry ("${data.title}") is a video, not a photo. Try again tomorrow!`;
-      return;
-    }
-
-    document.getElementById("image").src = data.image;
-    document.getElementById("title").textContent = data.title;
-    document.getElementById("date").textContent = data.date;
-    document.getElementById("explanation").textContent = data.explanation;
-    document.getElementById("credit").textContent = "© " + data.credit;
-
-    statusEl.hidden = true;
-    figure.hidden = false;
+    res = await fetch("/api/apod");
   } catch (err) {
-    statusEl.textContent = "Could not load the photo. Is the server running?";
+    statusEl.textContent = "Could not reach the server. Is it running?";
     console.error(err);
+    return;
   }
+
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    statusEl.textContent = data.error || `The server answered ${res.status}.`;
+    return;
+  }
+  if (!data.image) {
+    statusEl.textContent = `Today's entry ("${data.title}") is a video, not a photo. Try again tomorrow!`;
+    return;
+  }
+
+  image.src = data.image;
+  image.alt = data.title;
+  document.getElementById("title").textContent = data.title;
+  document.getElementById("date").textContent = data.date;
+  document.getElementById("explanation").textContent = data.explanation;
+  document.getElementById("credit").textContent = data.credit ? `© ${data.credit}` : "Public domain (NASA)";
+
+  statusEl.hidden = true;
+  figure.hidden = false;
 }
 
 reloadBtn.addEventListener("click", loadPhoto);

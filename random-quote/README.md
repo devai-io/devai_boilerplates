@@ -1,86 +1,58 @@
 # random-quote
 
-> Show a random quote, click a button for another — and learn the fetch pattern that
-> powers real APIs, using a data file you can read with your own eyes.
+Show a random quote, click for another — and learn the `fetch()` pattern that
+powers real APIs, using a data file you can open and read yourself. It never
+shows the same quote twice in a row.
 
-**What you'll build:** a quote card with a "New quote" button. Every click shows a
-different well-known quote and its author, and it never shows the same one twice in a
-row.
+## Run
 
-**What you'll learn:** how to `fetch()` a data file, turn its JSON into a JavaScript
-array, and pick a random item from it. This is the _same_ code you'd write to talk to
-a live API on the internet — here we use a local `quotes.json` so it's 100% reliable
-and works offline while you learn.
+Get it: `git clone https://git.devai.io/templates/random-quote.git`
 
-## Run it
-
-Because opening the file directly (via `file://`) can stop some browsers from reading
-`quotes.json`, run a tiny local web server — it's one line:
+This one needs a tiny local web server: browsers won't let a page opened
+straight from disk (`file://`) `fetch()` another file, even one in the same
+folder. From this folder:
 
 ```sh
-python3 -m http.server 8000    # then open http://localhost:8000
+python3 -m http.server 8000
 ```
 
-(That command comes built into most machines. Any static server works.)
+Then open http://localhost:8000. (That one needs Python 3; any static file
+server works just as well.)
 
-Or serve it like production — nginx in compose serves `quotes.json` just as
-well as the Python one-liner does:
+Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-`fetch()` doesn't care whether the data lives on a faraway server or right next to
-your page — it just reads a URL. Open <http://localhost:8000/quotes.json> while the
-server is running and you'll see the raw JSON this app reads: an array of little
-objects.
+## How it works
+
+`quotes.json` is an array of `{ "text": …, "author": … }` objects sitting next
+to the page. `loadQuotes()` reads it exactly the way you'd read a live API:
 
 ```js
 const res = await fetch("quotes.json");
-const quotes = await res.json(); // [ { text, author }, { text, author }, ... ]
+quotes = await res.json();
 ```
 
-Then picking a random one is just array math:
+Swap that URL for a real endpoint and the rest barely changes. `showRandom()`
+picks `Math.floor(Math.random() * quotes.length)` and re-rolls if it matches
+the last pick. "Loading…" shows while the file loads, and if it can't be read
+(most often because the page was opened from disk) the page tells you to serve
+the folder instead.
 
-```js
-const i = Math.floor(Math.random() * quotes.length);
-const quote = quotes[i];
-```
+Try it: add your own quotes to `quotes.json` and refresh, add a "Copy" button
+with `navigator.clipboard.writeText`, or point `fetch` at a live quotes API.
 
-**Want a live API instead?** Swap the one line — for example
-`fetch("https://api.quotable.io/random")` — and read the fields that API returns.
-Everything else stays the same. That's the whole point: a local file and a remote API
-are the same shape of code.
-
-## How the code works
-
-- **`loadQuotes()`** runs once when the page opens. It `fetch`es `quotes.json`, checks
-  `res.ok`, then `await res.json()` parses the text into a real array.
-- **`showRandom()`** picks a random index. It remembers `lastIndex` and rolls again if
-  it lands on the same quote, so you never see an immediate repeat.
-- **`addEventListener("click", showRandom)`** wires the button up: every click shows a
-  new quote — no page reload, no network call (the data's already in memory).
-- The whole load sits in `try / catch`. If the file can't be read (usually the
-  `file://` gotcha above), you get a friendly hint instead of a blank card.
-
-## Try changing something
-
-- Open `quotes.json` and add your own favorite quotes to the array. Refresh — done.
-- Add a "Copy" button that copies the current quote with `navigator.clipboard`.
-- Point `fetch` at a live quotes API and read _its_ field names instead of
-  `text` / `author`.
-
-## Files
+## Layout
 
 ```
-index.html    the quote card and the button
-styles.css    how it looks (light + dark)
-app.js        fetch the data, pick a random quote, render it
-quotes.json   the data — an array of { text, author } objects you can edit
-Dockerfile    serve it with nginx (what compose builds)
-compose.yaml  serve it like production: docker compose up --build
+index.html   the quote, its author and the button
+app.js       loadQuotes() and showRandom()
+quotes.json  the data — edit it freely
+styles.css   the look; follows your system's light or dark mode
 ```
 
 ## Deploy
@@ -92,4 +64,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
-from the internet.
+from the internet. Next up:
+[currency-converter](https://git.devai.io/templates/currency-converter).

@@ -85,6 +85,10 @@ fn handle(app: *App, arena: Allocator, req: *http.Server.Request) !void {
     const target = try arena.dupe(u8, req.head.target);
     const path = target[0 .. std.mem.findScalar(u8, target, '?') orelse target.len];
     const method = req.head.method;
+    // A POST/PUT/PATCH without Content-Length or Transfer-Encoding has an empty
+    // body (RFC 9112); say so explicitly, or std.http asserts when it discards it.
+    if (method.requestHasBody() and req.head.transfer_encoding == .none and req.head.content_length == null)
+        req.head.content_length = 0;
 
     if (std.mem.eql(u8, path, "/health") and method == .GET) {
         return req.respond("ok", .{
@@ -100,7 +104,7 @@ fn handle(app: *App, arena: Allocator, req: *http.Server.Request) !void {
         switch (method) {
             .GET => return posts.list(app, arena, req),
             .POST => return posts.create(app, arena, req),
-            else => return error.NotFound,
+            else => return error.MethodNotAllowed,
         }
     }
     if (std.mem.startsWith(u8, path, "/posts/")) {
@@ -111,7 +115,7 @@ fn handle(app: *App, arena: Allocator, req: *http.Server.Request) !void {
             .GET => return posts.get(app, arena, req, param),
             .PUT => return posts.update(app, arena, req, param),
             .DELETE => return posts.delete(app, arena, req, param),
-            else => return error.NotFound,
+            else => return error.MethodNotAllowed,
         }
     }
 
@@ -123,9 +127,9 @@ fn respondError(req: *http.Server.Request, err: anyerror) !void {
         error.BadRequest => try web.sendError(req, .bad_request, "invalid request body"),
         error.BodyTooLarge => try web.sendError(req, .payload_too_large, "request body too large"),
         error.Unauthorized => try web.sendError(req, .unauthorized, "missing or invalid token"),
-        error.Forbidden => try web.sendError(req, .forbidden, "you do not own this post"),
+        error.Forbidden => try web.sendError(req, .forbidden, "not your post"),
         error.NotFound => try web.sendError(req, .not_found, "not found"),
-        error.Conflict => try web.sendError(req, .conflict, "already exists"),
+        error.MethodNotAllowed => try web.sendError(req, .method_not_allowed, "method not allowed"),
         else => {
             std.log.err("internal error: {t}", .{err});
             try web.sendError(req, .internal_server_error, "internal error");

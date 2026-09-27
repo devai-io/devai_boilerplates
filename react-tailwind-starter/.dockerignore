@@ -1,4 +1,6 @@
+data
+.git
+.github
+.env
 node_modules
 dist
-Dockerfile
-.git

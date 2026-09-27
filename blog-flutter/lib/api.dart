@@ -15,22 +15,22 @@ class ApiException implements Exception {
 
 class PostSummary {
   PostSummary.fromJson(Map<String, dynamic> j)
-      : id = '${j['id']}',
-        title = j['title'] as String,
-        slug = j['slug'] as String,
-        excerpt = j['excerpt'] as String,
-        publishedAt = j['published_at'] as String;
+    : id = '${j['id']}',
+      title = j['title'] as String,
+      slug = j['slug'] as String,
+      excerpt = j['excerpt'] as String,
+      publishedAt = j['published_at'] as String;
   final String id, title, slug, excerpt, publishedAt;
 }
 
 class Post {
   Post.fromJson(Map<String, dynamic> j)
-      : id = '${j['id']}',
-        title = j['title'] as String,
-        slug = j['slug'] as String,
-        body = j['body'] as String,
-        published = j['published'] as bool,
-        createdAt = j['created_at'] as String;
+    : id = '${j['id']}',
+      title = j['title'] as String,
+      slug = j['slug'] as String,
+      body = j['body'] as String,
+      published = j['published'] as bool,
+      createdAt = j['created_at'] as String;
   final String id, title, slug, body, createdAt;
   final bool published;
 }
@@ -74,8 +74,9 @@ class ApiClient extends ChangeNotifier {
   Map<String, dynamic> _asMap(dynamic value) => (value as Map).cast<String, dynamic>();
 
   Future<void> login(String email, String password) async {
-    final data =
-        _asMap(await _request('POST', '/auth/login', body: {'email': email, 'password': password}));
+    final data = _asMap(
+      await _request('POST', '/auth/login', body: {'email': email, 'password': password}),
+    );
     _token = data['token'] as String;
     notifyListeners();
   }
@@ -96,8 +97,9 @@ class ApiClient extends ChangeNotifier {
   Future<Post> createPost(String title, String body) async =>
       Post.fromJson(_asMap(await _request('POST', '/posts', body: {'title': title, 'body': body})));
 
-  Future<Post> updatePost(String id, Map<String, Object?> fields) async =>
-      Post.fromJson(_asMap(await _request('PUT', '/posts/${Uri.encodeComponent(id)}', body: fields)));
+  Future<Post> updatePost(String id, Map<String, Object?> fields) async => Post.fromJson(
+    _asMap(await _request('PUT', '/posts/${Uri.encodeComponent(id)}', body: fields)),
+  );
 
   Future<void> deletePost(String id) async =>
       await _request('DELETE', '/posts/${Uri.encodeComponent(id)}');

@@ -1,83 +1,55 @@
 # crypto-ticker
 
-> A live crypto price board that refreshes itself every 30 seconds — your first taste
-> of polling an API on a timer.
+A little price board for Bitcoin, Ethereum and friends that refreshes itself
+every 30 seconds, with 24-hour changes in green and red. It teaches polling:
+asking an API again on a timer.
 
-**What you'll build:** a little ticker showing Bitcoin, Ethereum, Solana and Dogecoin
-with their current USD price and 24-hour change, colored green ▲ or red ▼. It updates
-on its own and shows when it last refreshed.
+## Run
 
-**What you'll learn:** how to _poll_ — call an API repeatedly on a schedule with
-`setInterval` — and how to survive the real world: when a free API rate-limits you,
-you keep the last good numbers on screen instead of flashing an error.
+Get it: `git clone https://git.devai.io/templates/crypto-ticker.git`
 
-## Run it
-
-**The easy way:** double-click `index.html`. It works as long as you have internet,
-because it calls the price API live.
+Double-click `index.html` — it opens in your browser and works, as long as
+you're online (it calls the price API live). Nothing to install.
 
 Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-An **API** is a URL that returns data. This one returns the price and 24h change for
-several coins at once — open it in your browser to see the JSON:
+## How it works
 
-<https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,dogecoin&vs_currencies=usd&include_24h_change=true>
-
-```json
-{ "bitcoin": { "usd": 65000, "usd_24h_change": 1.8 }, "ethereum": { ... } }
-```
-
-Prices change constantly, so one fetch isn't enough. We ask again on a timer:
+The API can't tell the page when prices change, so the page asks again on a
+timer:
 
 ```js
-refresh();                      // once, right away
-setInterval(refresh, 30000);    // then every 30 seconds (30000 ms)
+refresh();                     // once now…
+setInterval(refresh, 30000);   // …then every 30 seconds
 ```
 
-That repeated asking is called **polling**. It's how dashboards, scoreboards and
-ticker widgets stay current.
+Each `refresh()` is one ordinary `fetch()` to CoinGecko's free
+`/simple/price` endpoint (no key needed) with the coin ids in the query string
+and `include_24hr_change=true`. `render()` rebuilds one row per coin with
+`createElement` and `textContent`, formats prices with `Intl.NumberFormat`
+(extra decimals for coins under $1), and colors the change green `▲` or red
+`▼`.
 
-## How the code works
+Polling a free API means you will sometimes be throttled. On a 429 ("too many
+requests") or a network error, the page keeps the last good prices on screen,
+says so, and simply tries again on the next tick. "Loading prices…" shows until
+the first answer arrives.
 
-- **`COINS`** is our list. We `map` it into the comma-separated `ids=` the URL wants
-  and read each coin back as `data[coin.id]`.
-- **`refresh()`** fetches the prices, then `render()` rebuilds one row per coin. Price
-  is formatted with `Intl.NumberFormat`; the change is `.toFixed(2)` with an ▲/▼ and a
-  green/red class depending on its sign.
-- **Rate limits (HTTP 429).** Free APIs cap how often you may call. If we see `429` we
-  leave the existing rows untouched and show a small note — much friendlier than
-  wiping the board. Any other failure lands in `catch` and also keeps the old numbers.
-- **`setInterval(refresh, 30000)`** is the heartbeat; `refresh()` on its own gives the
-  page data immediately instead of waiting 30 seconds for the first tick.
+Try it: add a coin to `COINS` (e.g. `cardano`), poll every 60 seconds to be
+gentler on the free tier, or add `include_market_cap=true` and show it.
 
-## Try changing something
-
-- Add more coins to the `COINS` array (e.g. `{ id: "cardano", name: "Cardano",
-  symbol: "ADA" }`) — CoinGecko's `/coins/list` has every id.
-- Slow the polling to 60s (`60000`) to be gentler on the free tier, or add a manual
-  "Refresh now" button that calls `refresh()`.
-- Add `include_market_cap=true` to the URL and show each coin's market cap too.
-
-## A note on rate limits
-
-CoinGecko's free, keyless endpoint is generous but not unlimited. If you refresh very
-often you'll see the "Rate limited" note — that's the app doing the right thing:
-holding the last good prices until the next successful call. Waiting a bit clears it.
-
-## Files
+## Layout
 
 ```
-index.html    the ticker container
-styles.css    how it looks (light + dark), green/red change colors
-app.js        poll the API, format prices, render rows
-Dockerfile    serve it with nginx (what compose builds)
-compose.yaml  serve it like production: docker compose up --build
+index.html   an empty rows box, a status line and "last updated"
+app.js       COINS, refresh(), render() and the interval
+styles.css   the look — green / red change colors; follows light or dark mode
 ```
 
 ## Deploy
@@ -89,4 +61,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
-from the internet.
+from the internet. Next up:
+[dictionary-lookup](https://git.devai.io/templates/dictionary-lookup).

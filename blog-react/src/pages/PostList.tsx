@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link } from "react-router";
 import { listPosts, type PostSummary } from "../api";
 
 export function PostList() {
@@ -31,7 +31,7 @@ export function PostList() {
             </time>
             <h2 className="mt-1 text-xl font-semibold tracking-tight">
               <Link
-                to={`/${post.slug}`}
+                to={`/posts/${post.slug}`}
                 className="hover:text-violet-600 dark:hover:text-violet-400"
               >
                 {post.title}

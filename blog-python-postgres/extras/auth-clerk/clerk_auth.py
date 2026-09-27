@@ -1,28 +1,13 @@
-"""Drop-in replacement for the local JWT dependency: verify Clerk session tokens.
-
-Copy this file to app/clerk_auth.py, then point the import in app/posts.py at it:
-
-    from .clerk_auth import current_user_id
-
-Requires the RS256 backend (`uv add "pyjwt[crypto]"`) and CLERK_ISSUER set to
-your instance's Frontend API URL, e.g. https://your-app.clerk.accounts.dev
-"""
-
 import os
-from functools import lru_cache
 
 import jwt
 from fastapi import HTTPException, Request
 
-
-def _issuer() -> str:
-    return os.environ["CLERK_ISSUER"].rstrip("/")
-
-
-@lru_cache
-def _jwks() -> jwt.PyJWKClient:
-    # PyJWKClient caches fetched keys, so the JWKS endpoint is hit rarely.
-    return jwt.PyJWKClient(f"{_issuer()}/.well-known/jwks.json")
+ISSUER = os.environ["CLERK_ISSUER"].rstrip("/")
+# Origins allowed in the token's azp claim, comma-separated; unset skips the check.
+AUTHORIZED_PARTIES = [p for p in os.environ.get("CLERK_AUTHORIZED_PARTIES", "").split(",") if p]
+# Caches the key set; an unknown key id (a rotation) triggers a refetch, at most every 30s.
+_jwks = jwt.PyJWKClient(f"{ISSUER}/.well-known/jwks.json")
 
 
 def current_user_id(request: Request) -> str:
@@ -32,14 +17,18 @@ def current_user_id(request: Request) -> str:
         raise HTTPException(401, "missing bearer token")
     token = header[7:]
     try:
-        key = _jwks().get_signing_key_from_jwt(token).key
+        key = _jwks.get_signing_key_from_jwt(token).key
+        # Clerk session tokens live for 60s, so allow a little clock skew.
         claims = jwt.decode(
             token,
             key,
             algorithms=["RS256"],
-            issuer=_issuer(),
-            options={"require": ["exp", "sub", "iss"]},
+            issuer=ISSUER,
+            leeway=5,
+            options={"require": ["exp", "iss", "sub"]},
         )
     except jwt.PyJWTError:
         raise HTTPException(401, "invalid or expired token")
+    if AUTHORIZED_PARTIES and claims.get("azp") not in AUTHORIZED_PARTIES:
+        raise HTTPException(401, "token issued for an unknown origin")
     return claims["sub"]

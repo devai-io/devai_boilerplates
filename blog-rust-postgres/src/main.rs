@@ -3,8 +3,11 @@ mod db;
 mod error;
 mod posts;
 
-use axum::routing::{get, post};
 use axum::Router;
+use axum::http::StatusCode;
+use axum::routing::{get, post};
+
+use crate::error::ApiError;
 
 #[derive(Clone)]
 pub struct AppState {
@@ -36,8 +39,14 @@ async fn main() {
         // PUT/DELETE read it as a post id.
         .route(
             "/posts/{slug_or_id}",
-            get(posts::get_by_slug).put(posts::update).delete(posts::delete),
+            get(posts::get_by_slug)
+                .put(posts::update)
+                .delete(posts::delete),
         )
+        .fallback(|| async { ApiError::new(StatusCode::NOT_FOUND, "not found") })
+        .method_not_allowed_fallback(|| async {
+            ApiError::new(StatusCode::METHOD_NOT_ALLOWED, "method not allowed")
+        })
         .with_state(AppState { pool, jwt_secret });
 
     let listener = tokio::net::TcpListener::bind(("0.0.0.0", port))

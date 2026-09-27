@@ -11,7 +11,7 @@ export default function App() {
 
       <h1 className="text-center text-4xl font-bold tracking-tight sm:text-5xl">
         Everything is{" "}
-        <span className="bg-gradient-to-r from-violet-400 to-sky-400 bg-clip-text text-transparent">
+        <span className="bg-linear-to-r from-violet-400 to-sky-400 bg-clip-text text-transparent">
           wired up
         </span>
       </h1>
@@ -23,7 +23,7 @@ export default function App() {
 
       <button
         onClick={() => setCount((c) => c + 1)}
-        className="mt-8 rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 active:bg-violet-700"
+        className="mt-8 rounded-lg bg-violet-600 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-violet-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400 active:bg-violet-700"
       >
         Count is {count}
       </button>

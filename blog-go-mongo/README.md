@@ -1,100 +1,81 @@
 # blog-go-mongo
 
-A minimalist blog engine in Go: stdlib `net/http` (Go 1.22+ method routing),
-MongoDB via the official `mongo-driver`, bcrypt password hashing, and HS256
-JWTs. No ODM, no framework — five source files you can read in one sitting.
+A minimalist blog engine API in Go: stdlib `net/http` routing, MongoDB via the
+official `mongo-driver/v2`, bcrypt passwords and HS256 JWTs. No ODM, no
+framework — four source files you can read in one sitting.
 
-## Requirements
+## Run
 
-- Go 1.25+
-- MongoDB 6+ (or just Docker)
+    git clone https://git.devai.io/templates/blog-go-mongo.git
+    cd blog-go-mongo
+    docker compose up --build
 
-## Quickstart
+The API answers on http://localhost:8080 (`curl localhost:8080/health` → `ok`).
+MongoDB keeps its state in `./data/mongo`; the unique indexes (`users.email`,
+`posts.slug`) are ensured on every start, so there is no migrate step.
 
-With Docker:
+Without Docker: point `MONGO_URL` at any MongoDB, set the variables from
+`.env.example`, then `go run .` (Go 1.26).
 
-```sh
-docker compose up --build
-curl localhost:8080/health
-```
+## How it works
 
-Locally (MongoDB from compose, app on your machine):
+| Method | Path             | Auth | Result                                                   |
+|--------|------------------|------|----------------------------------------------------------|
+| GET    | `/health`        | —    | `200 ok`                                                 |
+| POST   | `/auth/register` | —    | `{email, password}` → `201 {id, email}`, `409` if taken  |
+| POST   | `/auth/login`    | —    | `{email, password}` → `200 {token}`, `401` if wrong      |
+| GET    | `/posts`         | —    | `200 [{id, title, slug, excerpt, published_at}]`, published only |
+| GET    | `/posts/{slug}`  | —    | `200` full published post, or `404`                      |
+| POST   | `/posts`         | JWT  | `{title, body}` → `201` full post (a draft)              |
+| PUT    | `/posts/{id}`    | JWT  | `{title?, body?, published?}` → `200` full post          |
+| DELETE | `/posts/{id}`    | JWT  | `204`                                                    |
 
-```sh
-docker compose up -d db
-cp .env.example .env          # adjust if needed
-export $(grep -v '^#' .env | xargs)
-go mod tidy                   # fetches dependencies and writes go.sum
-go run .
-```
-
-The unique indexes (`users.email`, `posts.slug`) are created automatically on
-startup; there is no separate migrate step.
-
-## API
-
-| Method | Path            | Auth | Description                                        |
-|--------|-----------------|------|----------------------------------------------------|
-| GET    | `/health`       | —    | Liveness check, returns `ok`                       |
-| POST   | `/auth/register`| —    | `{email, password}` → `201 {id, email}`            |
-| POST   | `/auth/login`   | —    | `{email, password}` → `200 {token}`                |
-| GET    | `/posts`        | —    | Published posts: `{id, title, slug, excerpt, published_at}` |
-| GET    | `/posts/{slug}` | —    | Full published post, or 404                        |
-| POST   | `/posts`        | JWT  | `{title, body}` → `201` full post (draft)          |
-| PUT    | `/posts/{id}`   | JWT  | `{title?, body?, published?}` → `200` full post    |
-| DELETE | `/posts/{id}`   | JWT  | `204`, author only                                 |
-
-Behavior worth knowing:
-
-- Ids are MongoDB ObjectIDs, serialized as hex strings in JSON.
-- Slugs are derived from the title (`"Hello, World!"` → `hello-world`); on a
-  collision the engine appends `-2`, `-3`, … Renaming a post regenerates its
-  slug.
-- `excerpt` is the first 200 characters of the body, computed server-side.
-- New posts are drafts (`published: false`); publish with
-  `PUT /posts/{id}` and `{"published": true}`. Public endpoints only ever
-  return published posts.
-- Only the author of a post can update or delete it.
-- Errors are JSON: `{"error": "message"}` with an appropriate status code.
+- **Ids** are MongoDB ObjectIDs, serialized as hex strings.
+- **Auth** — register stores a bcrypt hash; login returns an HS256 JWT signed
+  with `AUTH_SECRET` (`sub` = user id, 7-day expiry). Send it as
+  `Authorization: Bearer <token>`. `requireAuth` in `auth.go` pins the
+  algorithm, requires `exp`, and hands the user id to handlers via `userID(r)`.
+- **Ownership** — only a post's author may update or delete it; anyone else
+  gets `403`.
+- **Slugs** come from the title (`"Hello, World!"` → `hello-world`); a
+  duplicate title gets `-2`, `-3`, … Retitling a post regenerates its slug.
+- **Drafts** — new posts are unpublished; `PUT {"published": true}` publishes.
+  Public endpoints only return published posts. `excerpt` is the first 200
+  characters of the body; `published_at` is the post's creation time.
+- **Errors** are `{"error": "message"}` with a matching status code.
 
 A full round trip:
 
 ```sh
-curl -s -X POST localhost:8080/auth/register \
-  -d '{"email":"me@example.com","password":"sup3rsecret"}'
-TOKEN=$(curl -s -X POST localhost:8080/auth/login \
-  -d '{"email":"me@example.com","password":"sup3rsecret"}' | jq -r .token)
-ID=$(curl -s -X POST localhost:8080/posts -H "Authorization: Bearer $TOKEN" \
-  -d '{"title":"Hello, World!","body":"First post."}' | jq -r .id)
-curl -s -X PUT localhost:8080/posts/$ID -H "Authorization: Bearer $TOKEN" \
-  -d '{"published":true}'
+curl -s localhost:8080/auth/register -d '{"email":"me@example.com","password":"sup3rsecret"}'
+TOKEN=$(curl -s localhost:8080/auth/login -d '{"email":"me@example.com","password":"sup3rsecret"}' | jq -r .token)
+ID=$(curl -s localhost:8080/posts -H "Authorization: Bearer $TOKEN" -d '{"title":"Hello, World!","body":"First post."}' | jq -r .id)
+curl -s -X PUT localhost:8080/posts/$ID -H "Authorization: Bearer $TOKEN" -d '{"published":true}'
 curl -s localhost:8080/posts/hello-world
 ```
 
-## Project layout
+## Layout
 
 ```
-main.go             server setup, routing, JSON helpers
-db.go               client connect, startup index creation, duplicate-key detection
-auth.go             register/login, bcrypt, JWT issue + verify middleware
-posts.go            post handlers, slugs, excerpts
-Dockerfile          multi-stage build → distroless static image
-docker-compose.yml  app + MongoDB 7 with healthcheck
-extras/             drop-in Clerk and Auth0 auth (see below)
+main.go        server, routes, JSON helpers
+db.go          client connect, index setup on startup, duplicate-key check
+auth.go        register/login, bcrypt, JWT issue + requireAuth middleware
+posts.go       post handlers, slugs, excerpts
+extras/        drop-in Clerk and Auth0 verifiers, each with swap steps
 ```
 
-## How auth works
+Local auth lives entirely in `auth.go`, so it can be replaced wholesale:
+`extras/auth-clerk/` and `extras/auth-auth0/` each hold one JWKS-based RS256
+verifier and a README with the exact steps.
 
-`POST /auth/register` stores the email with a bcrypt password hash in the
-`users` collection. `POST /auth/login` verifies the password and returns a
-JWT — HS256, signed with `AUTH_SECRET`, `sub` = user id, 7-day expiry.
-Protected routes expect it as `Authorization: Bearer <token>`; the
-`requireAuth` middleware in `auth.go` validates it and hands the user id to
-handlers via `userID(r)`.
+## Deploy
 
-## Switching auth providers
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh.
 
-Local auth is deliberately contained in `auth.go` so it can be swapped
-wholesale. `extras/auth-clerk/` and `extras/auth-auth0/` each contain a single
-drop-in verifier (JWKS-based RS256 validation) plus a README with the exact
-delete/replace steps.
+---
+Part of [devai.io](https://devai.io) — the blog engine series: one API
+contract, eight backends (`blog-{go,rust,zig,python}-{postgres,mongo}`) and
+the `blog-react`, `blog-angular`, `blog-dart` and `blog-flutter` frontends.

@@ -1,0 +1,6 @@
+data/
+.env
+.DS_Store
+.zig-cache/
+zig-out/
+zig-pkg/

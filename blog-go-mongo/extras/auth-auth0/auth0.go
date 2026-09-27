@@ -1,8 +1,3 @@
-// Drop-in Auth0 authentication for the blog API.
-//
-// Replaces the local email/password + HS256 setup with verification of Auth0
-// access tokens (RS256, public keys fetched from your tenant's JWKS
-// endpoint). See README.md in this directory for the swap instructions.
 package auth0auth
 
 import (
@@ -98,6 +93,7 @@ func (c *jwksCache) keyfunc(t *jwt.Token) (any, error) {
 	if time.Since(c.fetched) < time.Minute {
 		return nil, fmt.Errorf("unknown key id %q", kid)
 	}
+	c.fetched = time.Now() // failed fetches are rate-limited too
 	if err := c.refresh(); err != nil {
 		return nil, err
 	}
@@ -147,6 +143,6 @@ func (c *jwksCache) refresh() error {
 			E: int(new(big.Int).SetBytes(e).Int64()),
 		}
 	}
-	c.keys, c.fetched = keys, time.Now()
+	c.keys = keys
 	return nil
 }

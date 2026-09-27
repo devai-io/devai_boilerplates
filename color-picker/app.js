@@ -1,8 +1,3 @@
-// Color Picker & Palette — pick a color, read its codes, copy any of them.
-// Concepts: reading an <input type="color">, converting HEX <-> RGB by hand,
-// and copying text with the Clipboard API.
-
-// 1) Grab the elements we need.
 const picker = document.getElementById("color");
 const swatch = document.getElementById("swatch");
 const hexValue = document.getElementById("hexValue");
@@ -10,47 +5,44 @@ const rgbValue = document.getElementById("rgbValue");
 const shades = document.getElementById("shades");
 const toast = document.getElementById("toast");
 
-// 2) HEX and RGB are two ways of writing the same color.
-//    "#ec4899" is just three bytes — ec, 48, 99 — i.e. red 236, green 72, blue 153.
+// HEX and RGB are two ways to write the same three numbers. "#ec4899" is three
+// bytes in base 16 — ec, 48, 99 — which is red 236, green 72, blue 153.
 function hexToRgb(hex) {
-  const n = parseInt(hex.slice(1), 16); // drop the "#", read the rest as base-16
+  const n = parseInt(hex.slice(1), 16);
   return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
 }
 
 function rgbToHex(r, g, b) {
-  const two = (v) => v.toString(16).padStart(2, "0"); // 5 -> "05", always 2 digits
+  const two = (v) => v.toString(16).padStart(2, "0");
   return "#" + two(r) + two(g) + two(b);
 }
 
-// 3) Mix one channel toward a target: 255 lightens (a tint), 0 darkens (a shade).
-//    `amount` is 0..1 — how far to move.
+// Move a channel part of the way toward 255 (a lighter tint) or 0 (a darker shade).
 function mix(value, target, amount) {
   return Math.round(value + (target - value) * amount);
 }
 
-// 4) Dark colors need light text on top, and vice versa. This picks a readable one.
+// Pick dark or light text so the label on a swatch stays readable.
 function readableText(r, g, b) {
-  const brightness = (r * 299 + g * 587 + b * 114) / 1000; // rough perceived brightness
+  const brightness = (r * 299 + g * 587 + b * 114) / 1000;
   return brightness > 140 ? "#111" : "#fff";
 }
 
-// 5) Rebuild the whole UI from a single hex color.
+const steps = [
+  { target: 255, amount: 0.4 },
+  { target: 255, amount: 0.2 },
+  { target: 0, amount: 0 },
+  { target: 0, amount: 0.2 },
+  { target: 0, amount: 0.4 },
+];
+
 function update(hex) {
   const { r, g, b } = hexToRgb(hex);
   swatch.style.background = hex;
   hexValue.textContent = hex.toUpperCase();
   rgbValue.textContent = `rgb(${r}, ${g}, ${b})`;
 
-  // Five variations: two lighter tints, the color itself, two darker shades.
-  const steps = [
-    { target: 255, amount: 0.4 },
-    { target: 255, amount: 0.2 },
-    { target: 0, amount: 0 }, // amount 0 leaves the color unchanged
-    { target: 0, amount: 0.2 },
-    { target: 0, amount: 0.4 },
-  ];
-
-  shades.innerHTML = ""; // clear the old palette before drawing the new one
+  shades.replaceChildren();
   for (const step of steps) {
     const sr = mix(r, step.target, step.amount);
     const sg = mix(g, step.target, step.amount);
@@ -68,23 +60,25 @@ function update(hex) {
   }
 }
 
-// 6) Copy text to the clipboard, then flash "Copied!" for a moment.
+let toastTimer = null;
+
+// The Clipboard API is async and the browser may refuse (some block it on
+// file:// pages), so we await it inside try/catch and say what happened.
 async function copy(text) {
   try {
     await navigator.clipboard.writeText(text);
     toast.textContent = `Copied ${text}`;
   } catch {
-    // Some browsers block the clipboard on file:// pages — say so instead of failing silently.
     toast.textContent = "Copy blocked here — select the text manually.";
   }
   toast.classList.add("show");
-  clearTimeout(copy.timer); // if you click again quickly, restart the countdown
-  copy.timer = setTimeout(() => toast.classList.remove("show"), 1400);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("show"), 1400);
 }
 
-// 7) Wire it up. The two big values copy themselves; the picker redraws on change.
 hexValue.addEventListener("click", () => copy(hexValue.textContent.trim()));
 rgbValue.addEventListener("click", () => copy(rgbValue.textContent.trim()));
+// "input" fires continuously while you drag inside the picker, not just at the end.
 picker.addEventListener("input", () => update(picker.value));
 
-update(picker.value); // draw once with the input's starting color
+update(picker.value);

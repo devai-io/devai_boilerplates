@@ -1,0 +1,6 @@
+data
+.zig-cache
+zig-out
+.git
+.github
+.env

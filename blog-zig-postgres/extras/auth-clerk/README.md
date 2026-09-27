@@ -1,53 +1,57 @@
-# Swapping local auth for Clerk
+# Auth via Clerk
 
-`clerk.zig` is a single-file verifier for Clerk session JWTs (RS256, validated
-against your instance's JWKS with only `std.crypto` — no new dependencies).
+`clerk.zig` replaces the local email+password auth with
+[Clerk](https://clerk.com): the app stops issuing tokens and instead verifies
+Clerk session JWTs (RS256) against your instance's JWKS — signature, `exp` and
+`nbf` — using only the standard library.
 
-## What to delete
+## Setup
 
-- `src/jwt.zig` and the local token issuing
-- the `/auth/register` and `/auth/login` routes in `src/main.zig`
-- `register`/`login` and the argon2 code in `src/auth.zig`
-- the `users` table in `schema.sql` — identity now lives in Clerk
-
-## What to replace
-
-1. Copy `clerk.zig` into `src/`.
-2. Clerk user ids are strings (`user_...`), not bigints. Change
-   `posts.author_id` to `text` in `schema.sql` (drop the `references users`
-   clause) and change `author_id: i64` to `author_id: []const u8` in
-   `src/db.zig` / `src/posts.zig` (ownership check becomes `std.mem.eql`).
-3. In `src/main.zig`, construct the verifier at startup and put it on `App`:
-
-   ```zig
-   const clerk = @import("clerk.zig");
-
-   const jwks_url = env.get("CLERK_JWKS_URL") orelse
-       std.process.fatal("CLERK_JWKS_URL is required", .{});
-   var verifier = clerk.Verifier.init(gpa, io, jwks_url);
-   defer verifier.deinit();
-   // add `clerk: *clerk.Verifier` to App and pass &verifier
-   ```
-
-4. Replace `requireAuth` in `src/auth.zig`:
+1. Copy `clerk.zig` into `src/` and delete `src/jwt.zig`.
+2. `src/auth.zig` shrinks to `requireAuth` (drop `register`, `login`,
+   `normalizeEmail` and the argon2/jwt imports):
 
    ```zig
    pub fn requireAuth(app: *App, arena: Allocator, req: *http.Server.Request) ![]const u8 {
        const token = web.bearerToken(req) orelse return error.Unauthorized;
-       return app.clerk.verify(arena, token) catch error.Unauthorized;
+       return app.verifier.verify(arena, token) catch error.Unauthorized;
    }
    ```
 
-5. Env: drop `AUTH_SECRET`, add
-   `CLERK_JWKS_URL=https://<your-instance>.clerk.accounts.dev/.well-known/jwks.json`
-   (Dashboard → API Keys → JWKS URL).
+3. In `src/main.zig`, remove the `/auth/register` and `/auth/login` routes,
+   add `const clerk = @import("clerk.zig");`, replace the `auth_secret` field
+   of `App` with `verifier: *clerk.Verifier`, and replace the `AUTH_SECRET`
+   lookup in `main` with:
 
-Clients now send the Clerk session token as `Authorization: Bearer <token>`
-(from `useAuth().getToken()` in Clerk's frontend SDKs).
+   ```zig
+   const jwks_url = env.get("CLERK_JWKS_URL") orelse
+       std.process.fatal("CLERK_JWKS_URL is required", .{});
+   var verifier = clerk.Verifier.init(gpa, io, jwks_url);
+   defer verifier.deinit();
+   ```
+
+   and set `.verifier = &verifier` where `app` is built.
+4. Clerk user ids are strings (`user_...`), not bigints. In `src/db.zig`,
+   make `author_id` a `[]const u8` in `Post` and in `createPost`, read it with
+   `try arena.dupe(u8, try row.get([]const u8, 5))` in `postRow`, and delete
+   `User`, `createUser` and `getUserByEmail`. In `src/posts.zig`,
+   `findOwnPost` takes `user_id: []const u8` and compares with
+   `std.mem.eql(u8, post.author_id, user_id)`.
+5. In `schema.sql`, delete the `users` table and change the column to
+   `author_id text not null` (`create table if not exists` won't alter an
+   existing table, so start from an empty database).
+6. Set `CLERK_JWKS_URL=https://<your-instance>.clerk.accounts.dev/.well-known/jwks.json`
+   (Clerk dashboard → API keys) instead of `AUTH_SECRET`.
+
+Clients send the Clerk session token as `Authorization: Bearer <token>`
+(`await session.getToken()` in Clerk's frontend SDKs).
 
 ## Notes
 
-- The verifier caches the JWKS in memory and refetches once when it sees an
-  unknown `kid`, so key rotation just works.
-- For defense in depth you can additionally check the `azp` claim against your
-  frontend origin(s) — see Clerk's manual JWT verification docs.
+- The JWKS is fetched over HTTPS with `std.http.Client`, which needs the
+  system CA bundle — the distroless runtime image ships one.
+- Keys are cached in memory. A token with an unknown `kid` triggers a refetch
+  (at most once a minute), so key rotations need no restart.
+- Clerk also puts the requesting origin in the `azp` claim; if browsers from
+  other sites could hold your users' tokens, parse `azp` in `verify` and
+  compare it with your frontend's origin.

@@ -1,83 +1,52 @@
 # currency-converter
 
-> Type an amount, pick two currencies, and see the conversion at today's real exchange
-> rate — a first look at building URLs with query parameters.
+Type an amount, pick two currencies, and see the conversion at the latest
+European Central Bank rate, from the free Frankfurter API. It teaches building
+URLs with query parameters, and filling dropdowns from data an API gives you.
 
-**What you'll build:** a converter with an amount box and two dropdowns (from / to).
-As you type or switch currencies it fetches the live rate and shows both the rate
-("1 USD = 0.92 EUR") and your converted amount.
+## Run
 
-**What you'll learn:** how a URL carries _query parameters_ — the `?from=USD&to=EUR`
-part — and how the same value flows through your code: read the inputs, ask the API,
-multiply, show the answer. You'll also fill a `<select>` dropdown from live data.
+Get it: `git clone https://git.devai.io/templates/currency-converter.git`
 
-## Run it
-
-**The easy way:** double-click `index.html`. It works as long as you have internet,
-because it calls the exchange-rate API live.
+Double-click `index.html` — it opens in your browser and works, as long as
+you're online (it calls the exchange-rate API live). Nothing to install.
 
 Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-Everything after the `?` in a URL is the **query string**, and each `name=value` is a
-**parameter**. This one URL asks "what is 1 USD in EUR today?" — open it in your
-browser to see the JSON:
+## How it works
 
-<https://api.frankfurter.dev/v1/latest?from=USD&to=EUR>
+Two calls to `https://api.frankfurter.dev/v1`, no key needed:
 
-```json
-{ "amount": 1, "base": "USD", "date": "…", "rates": { "EUR": 0.92 } }
-```
+1. **`/currencies`** answers `{ "AUD": "Australian Dollar", … }`. The code
+   loops over it and adds an `<option>` per currency to both dropdowns.
+2. **`/latest?from=USD&to=EUR`** answers with the rate for that pair. Everything
+   after the `?` is the **query string**: `name=value` pairs joined by `&`
+   that tell one endpoint what you want. Change the dropdowns, change the URL,
+   get a different answer.
 
-We read `rates.EUR` (a plain number) and multiply:
+The rate is fetched only when a dropdown changes. Typing an amount just
+multiplies by the rate you already have, so the page reacts instantly and
+doesn't call the API on every keystroke. `Intl.NumberFormat` formats the result
+as money in the target currency, and the line above it shows the ECB date the
+rate is from (the ECB publishes on working days). "Loading…" and error
+messages cover the waits and failures.
 
-```js
-const converted = amount * rate; // 100 × 0.92 = 92
-```
+Try it: add a "swap ⇅" button that trades the two currencies, convert to
+several at once with `to=EUR,GBP,JPY`, or chart a week of rates from
+`/2026-09-01..2026-09-07`.
 
-The list of currencies for the dropdowns comes from a second URL,
-<https://api.frankfurter.dev/v1/currencies>, which returns
-`{ "USD": "United States Dollar", ... }`.
-
-## How the code works
-
-- **`loadCurrencies()`** fetches the currency list, then loops over it with
-  `Object.keys(...)` to add one `<option>` to each dropdown. It sets a default pair
-  (USD → EUR) and runs the first conversion.
-- **`convert()`** builds the URL with the two chosen codes, fetches it, reads
-  `data.rates[to]`, and writes the rate and the result onto the page.
-- **Same currency both sides?** We skip the network entirely — the rate is just `1`.
-- **`Intl.NumberFormat`** is a built-in that formats `92` as `€92.00`, matching
-  whichever currency you picked.
-- Every change (`input` on the amount, `change` on a dropdown) re-runs `convert()`, and
-  each fetch checks `res.ok` inside `try / catch`.
-
-## Try changing something
-
-- Add a "swap ⇅" button that trades the `from` and `to` values, then calls `convert()`.
-- Show the rate's `date` from the JSON so users know how fresh it is.
-- Convert to several currencies at once: `...?from=USD&to=EUR,GBP,JPY` returns all
-  three in `rates`.
-
-## A note on the data
-
-Frankfurter is free and keyless, using European Central Bank reference rates (updated
-on working days), so it's great for learning — not for trading. If a request ever
-fails, the `catch` block shows a friendly message instead of a broken number.
-
-## Files
+## Layout
 
 ```
-index.html    the amount box and the two dropdowns
-styles.css    how it looks (light + dark)
-app.js        load currencies, fetch the rate, do the math
-Dockerfile    serve it with nginx (what compose builds)
-compose.yaml  serve it like production: docker compose up --build
+index.html   the amount box, two dropdowns and the result
+app.js       loadCurrencies(), loadRate() and showResult()
+styles.css   the look; follows your system's light or dark mode
 ```
 
 ## Deploy
@@ -89,4 +58,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
-from the internet.
+from the internet. Next up:
+[crypto-ticker](https://git.devai.io/templates/crypto-ticker).

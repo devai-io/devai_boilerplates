@@ -1,7 +1,3 @@
-// Currency Converter — type an amount, pick two currencies, see the conversion.
-// Concept: QUERY PARAMETERS. We build a URL ending in ?from=USD&to=EUR and the
-// API answers with today's exchange rate. Then it's simple math: amount × rate.
-
 const amountInput = document.getElementById("amount");
 const fromSelect = document.getElementById("from");
 const toSelect = document.getElementById("to");
@@ -9,85 +5,90 @@ const rateEl = document.getElementById("rate");
 const convertedEl = document.getElementById("converted");
 const statusEl = document.getElementById("status");
 
-// Format a number as money in the given currency: (0.92, "EUR") -> "€0.92".
+const API = "https://api.frankfurter.dev/v1";
+
 const money = (n, currency) =>
   new Intl.NumberFormat("en-US", { style: "currency", currency }).format(n);
 
-// STEP 1 — fill both dropdowns from the list of currencies the API supports.
+// The rate for the chosen pair. Typing an amount only multiplies by it; the API
+// is asked again only when a dropdown changes. null = no rate yet.
+let rate = null;
+let rateDate = "";
+
 async function loadCurrencies() {
   statusEl.textContent = "Loading…";
 
   try {
-    const res = await fetch("https://api.frankfurter.dev/v1/currencies");
+    const res = await fetch(`${API}/currencies`);
     if (!res.ok) throw new Error(`Currencies returned ${res.status}`);
 
-    // An object mapping code -> name, e.g. { "USD": "United States Dollar", ... }
+    // { "AUD": "Australian Dollar", "BRL": "Brazilian Real", … }
     const currencies = await res.json();
-    const codes = Object.keys(currencies); // ["AUD", "BGN", ..., "USD", ...]
-
-    for (const code of codes) {
-      // Add one <option> to each dropdown. cloneNode(true) copies it for the second.
-      const option = makeOption(code, currencies[code]);
-      fromSelect.appendChild(option);
-      toSelect.appendChild(option.cloneNode(true));
+    for (const [code, name] of Object.entries(currencies)) {
+      fromSelect.append(new Option(`${code} — ${name}`, code));
+      toSelect.append(new Option(`${code} — ${name}`, code));
     }
-
-    // Sensible starting pair.
     fromSelect.value = "USD";
     toSelect.value = "EUR";
 
     statusEl.textContent = "";
-    convert();
+    loadRate();
   } catch (err) {
     statusEl.textContent = "Couldn't load the currency list. Try again in a moment.";
     console.error(err);
   }
 }
 
-function makeOption(code, name) {
-  const option = document.createElement("option");
-  option.value = code;
-  option.textContent = `${code} — ${name}`;
-  return option;
-}
-
-// STEP 2 — fetch the rate for the chosen pair and update the result.
-async function convert() {
+async function loadRate() {
   const from = fromSelect.value;
   const to = toSelect.value;
-  const amount = parseFloat(amountInput.value) || 0; // empty box counts as 0
+  rate = null;
 
-  // Same currency on both sides? The rate is exactly 1 — no API call needed.
   if (from === to) {
-    rateEl.textContent = `1 ${from} = 1 ${to}`;
-    convertedEl.textContent = money(amount, to);
+    rate = 1;
+    rateDate = "";
+    showResult();
     return;
   }
 
-  statusEl.textContent = "Converting…";
+  showResult();
+  statusEl.textContent = "Loading rate…";
 
   try {
-    // Everything after the "?" is the query string. Each name=value is a parameter.
-    const res = await fetch(`https://api.frankfurter.dev/v1/latest?from=${from}&to=${to}`);
+    // QUERY PARAMETERS: everything after the "?" is name=value pairs joined by
+    // "&". They tell the same endpoint WHAT you want: here, from which currency
+    // to which. Change the values and you get a different answer.
+    const res = await fetch(`${API}/latest?from=${from}&to=${to}`);
     if (!res.ok) throw new Error(`Rate returned ${res.status}`);
 
-    // { amount: 1, base: "USD", date: "…", rates: { EUR: 0.92 } }
+    // { amount: 1, base: "USD", date: "2026-09-25", rates: { EUR: 0.87696 } }
     const data = await res.json();
-    const rate = data.rates[to];
+    if (from !== fromSelect.value || to !== toSelect.value) return; // pair changed meanwhile
 
-    rateEl.textContent = `1 ${from} = ${rate} ${to}`;
-    convertedEl.textContent = money(amount * rate, to);
+    rate = data.rates[to];
+    rateDate = data.date;
     statusEl.textContent = "";
+    showResult();
   } catch (err) {
     statusEl.textContent = "Couldn't get the rate. Try again in a moment.";
     console.error(err);
   }
 }
 
-// Recompute whenever the amount is typed in or a dropdown changes.
-amountInput.addEventListener("input", convert);
-fromSelect.addEventListener("change", convert);
-toSelect.addEventListener("change", convert);
+function showResult() {
+  if (rate === null) {
+    rateEl.textContent = "";
+    convertedEl.textContent = "—";
+    return;
+  }
+  const amount = parseFloat(amountInput.value) || 0;
+  const to = toSelect.value;
+  rateEl.textContent = `1 ${fromSelect.value} = ${rate} ${to}` + (rateDate ? ` · ECB rate of ${rateDate}` : "");
+  convertedEl.textContent = money(amount * rate, to);
+}
 
-// Kick everything off: load the currency list, which then runs the first convert().
+amountInput.addEventListener("input", showResult);
+fromSelect.addEventListener("change", loadRate);
+toSelect.addEventListener("change", loadRate);
+
 loadCurrencies();

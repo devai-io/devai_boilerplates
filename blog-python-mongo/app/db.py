@@ -1,10 +1,9 @@
-"""Mongo connection + startup index creation (the indexes are the whole schema)."""
+from pymongo import AsyncMongoClient
+from pymongo.asynchronous.database import AsyncDatabase
 
-from motor.motor_asyncio import AsyncIOMotorClient, AsyncIOMotorDatabase
 
-
-async def connect(mongo_url: str, db_name: str) -> tuple[AsyncIOMotorClient, AsyncIOMotorDatabase]:
-    client = AsyncIOMotorClient(mongo_url)
+async def connect(mongo_url: str, db_name: str) -> tuple[AsyncMongoClient, AsyncDatabase]:
+    client = AsyncMongoClient(mongo_url, tz_aware=True)
     db = client[db_name]
     await db.users.create_index("email", unique=True)
     await db.posts.create_index("slug", unique=True)

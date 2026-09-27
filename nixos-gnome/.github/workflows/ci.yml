@@ -9,6 +9,13 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: cachix/install-nix-action@v27
-      - run: nix flake check --no-build
+      - uses: actions/checkout@v7
+      # Evaluate the whole system (nothing is built) with the official Nix image.
+      - run: |
+          docker run --rm -v "$PWD:/src" -w /src \
+            -e NIX_CONFIG="experimental-features = nix-command flakes" \
+            nixos/nix:2.35.2 sh -ec '
+              git config --global --add safe.directory /src
+              nix flake check --no-build
+              nix eval --raw .#nixosConfigurations.desktop.config.system.build.toplevel.drvPath
+            '

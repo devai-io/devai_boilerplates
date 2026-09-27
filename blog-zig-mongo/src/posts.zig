@@ -12,7 +12,7 @@ const PostSummary = struct {
     title: []const u8,
     slug: []const u8,
     excerpt: []const u8,
-    published_at: i64,
+    published_at: []const u8,
 };
 
 pub fn list(app: *App, arena: Allocator, req: *http.Server.Request) !void {
@@ -43,48 +43,65 @@ pub fn create(app: *App, arena: Allocator, req: *http.Server.Request) !void {
     }, arena, req);
 
     const title = std.mem.trim(u8, in.title, " \t\r\n");
-    if (title.len == 0)
-        return web.sendError(req, .unprocessable_entity, "title is required");
+    if (title.len == 0 or std.mem.trim(u8, in.body, " \t\r\n").len == 0)
+        return web.sendError(req, .bad_request, "title and body are required");
 
-    const slug = try slugify(arena, title);
-    const post = try app.db.createPost(arena, author_id, title, slug, in.body, web.nowSeconds(app.io));
+    const post = try app.db.createPost(arena, author_id, title, try slugify(arena, title), in.body);
     try web.sendJson(req, .created, post, arena);
 }
 
 pub fn update(app: *App, arena: Allocator, req: *http.Server.Request, id_param: []const u8) !void {
-    const author_id = try auth.requireAuth(app, arena, req);
-    const changes = try web.parseJson(db.PostUpdate, arena, req);
+    const user_id = try auth.requireAuth(app, arena, req);
+    const in = try web.parseJson(struct {
+        title: ?[]const u8 = null,
+        body: ?[]const u8 = null,
+        published: ?bool = null,
+    }, arena, req);
 
-    const existing = (try app.db.getPostById(arena, id_param)) orelse return error.NotFound;
-    if (!std.mem.eql(u8, existing.author_id, author_id)) return error.Forbidden;
+    var post = try findOwnPost(app, arena, id_param, user_id);
 
-    const post = try app.db.updatePost(arena, existing.id, changes, web.nowSeconds(app.io));
+    if (in.title) |raw| {
+        const trimmed = std.mem.trim(u8, raw, " \t\r\n");
+        if (trimmed.len == 0) return web.sendError(req, .bad_request, "title cannot be empty");
+        // The slug follows the title; an unchanged title keeps its slug.
+        if (!std.mem.eql(u8, trimmed, post.title)) {
+            post.title = trimmed;
+            post.slug = try slugify(arena, trimmed);
+        }
+    }
+    if (in.body) |body| post.body = body;
+    if (in.published) |published| post.published = published;
+
+    try app.db.updatePost(arena, &post);
     try web.sendJson(req, .ok, post, arena);
 }
 
 pub fn delete(app: *App, arena: Allocator, req: *http.Server.Request, id_param: []const u8) !void {
-    const author_id = try auth.requireAuth(app, arena, req);
-
-    const existing = (try app.db.getPostById(arena, id_param)) orelse return error.NotFound;
-    if (!std.mem.eql(u8, existing.author_id, author_id)) return error.Forbidden;
-
-    try app.db.deletePost(arena, existing.id);
+    const user_id = try auth.requireAuth(app, arena, req);
+    const post = try findOwnPost(app, arena, id_param, user_id);
+    try app.db.deletePost(post.id);
     try req.respond("", .{ .status = .no_content });
 }
 
-/// First 200 characters (not bytes): cuts on a UTF-8 codepoint boundary.
-fn excerpt(body: []const u8) []const u8 {
-    var chars: usize = 0;
-    var i: usize = 0;
-    while (i < body.len and chars < 200) {
-        const seq_len = std.unicode.utf8ByteSequenceLength(body[i]) catch 1;
-        i = @min(body.len, i + seq_len);
-        chars += 1;
-    }
-    return body[0..i];
+/// error.NotFound if the post doesn't exist, error.Forbidden if it belongs
+/// to someone else.
+fn findOwnPost(app: *App, arena: Allocator, id_param: []const u8, user_id: []const u8) !db.Post {
+    const post = (try app.db.getPostById(arena, id_param)) orelse return error.NotFound;
+    if (!std.mem.eql(u8, post.author_id, user_id)) return error.Forbidden;
+    return post;
 }
 
-/// Lowercased ASCII alphanumerics, everything else collapsed to single dashes.
+/// The first 200 characters (codepoints, not bytes, so a UTF-8 sequence is
+/// never split) of the body.
+fn excerpt(body: []const u8) []const u8 {
+    var it = std.unicode.Utf8View.initUnchecked(body).iterator();
+    var n: usize = 0;
+    while (n < 200 and it.nextCodepointSlice() != null) n += 1;
+    return body[0..it.i];
+}
+
+/// Lowercases the title and collapses every non-alphanumeric run into a
+/// single dash: "Hello, World!" -> "hello-world".
 fn slugify(arena: Allocator, title: []const u8) ![]const u8 {
     var out: std.ArrayList(u8) = .empty;
     var pending_dash = false;

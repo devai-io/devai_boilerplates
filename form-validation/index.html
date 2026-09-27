@@ -14,19 +14,19 @@
       <!-- novalidate turns off the browser's own popups so we can show ours. -->
       <form id="form" novalidate>
         <label for="name">Name</label>
-        <input id="name" class="input" type="text" autocomplete="off" />
+        <input id="name" class="input" type="text" autocomplete="name" aria-describedby="nameError" />
         <p id="nameError" class="error"></p>
 
         <label for="email">Email</label>
-        <input id="email" class="input" type="email" autocomplete="off" />
+        <input id="email" class="input" type="email" autocomplete="email" aria-describedby="emailError" />
         <p id="emailError" class="error"></p>
 
         <label for="password">Password</label>
-        <input id="password" class="input" type="password" />
+        <input id="password" class="input" type="password" autocomplete="new-password" aria-describedby="passwordError" />
         <p id="passwordError" class="error"></p>
 
         <label for="confirm">Confirm password</label>
-        <input id="confirm" class="input" type="password" />
+        <input id="confirm" class="input" type="password" autocomplete="new-password" aria-describedby="confirmError" />
         <p id="confirmError" class="error"></p>
 
         <button class="btn" type="submit">Sign up</button>

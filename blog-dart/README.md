@@ -1,86 +1,86 @@
 # blog-dart
 
-Minimal blog client written in plain Dart for the web — no Flutter. A hand-rolled
-SPA with hash routing built on `package:web` and `dart:js_interop`, compiled with
-`dart compile js` or served with `webdev`. Works against any of the devai.io blog
-backends (they all implement the same API contract).
+The blog client as a hand-rolled Dart web SPA — no Flutter, no framework, no CSS
+library: `package:web` for the DOM, a hash router, one stylesheet, and `dart compile js`.
+Post list, post page with rendered markdown, login, and an editor with a publish
+toggle. It works against any backend of the devai.io blog engine series.
 
-Styling uses the Tailwind Play CDN (a `<script>` tag in `web/index.html`). That is a
-deliberate trade-off to keep this template free of any Node toolchain; for a
-production site you would switch to a compiled Tailwind build or plain CSS.
+## Run
 
-## Requirements
+Get it: `git clone https://git.devai.io/templates/blog-dart.git`
 
-- Dart SDK 3.6+
-- A blog backend running (default: `http://localhost:8080`)
+    docker compose up --build
 
-## Quickstart
+Open http://localhost:8081. The app expects a blog API on http://localhost:8080 —
+start one of the backend siblings first (e.g. `docker compose up --build` in
+`blog-go-postgres`), then create a user, since there is no sign-up page:
 
-```sh
-dart pub get
-dart pub global activate webdev
-webdev serve            # http://localhost:8080 is the default API; app on :8081 if 8080 is taken
-```
+    curl -X POST localhost:8080/auth/register -H 'Content-Type: application/json' \
+      -d '{"email":"me@example.com","password":"secret123"}'
 
-`webdev serve` runs the dev compiler with hot refresh. If your API also listens on
-8080, pick another port for the app: `webdev serve web:8082`.
+Without Docker (Dart 3.13), check and compile:
 
-## Production build
+    dart pub get
+    dart analyze
+    dart compile js -O2 -o build/main.dart.js web/main.dart
 
-Either:
+## How it works
 
-```sh
-webdev build            # outputs build/ (dart2js -O2, see build.yaml)
-```
+The browser only ever talks to one origin. The app calls `/api/...` and nginx
+forwards `/api/*` to `API_URL` — so the API needs no CORS setup.
 
-or compile directly, which is also how you point the app at a different API:
+- `API_URL` (runtime, default `http://host.docker.internal:8080`, no trailing
+  slash) — where nginx sends `/api/*`. Set it in `.env` or the environment; no
+  rebuild needed. On Linux, a host firewall (firewalld, NixOS) may block
+  containers from reaching the host — allow the Docker bridges, or point
+  `API_URL` at the API directly.
+- `API_URL` as a compile-time define (default `/api`) — the base URL baked into
+  `main.dart.js`: `dart compile js -DAPI_URL=https://api.example.com ...`. Use a
+  full URL only if the app should call an API directly; that API must then send
+  CORS headers.
 
-```sh
-dart compile js web/main.dart -o build/main.dart.js -DAPI_URL=https://api.example.com
-cp web/index.html build/
-```
+Everything lives in `web/main.dart` (~480 lines): a typed `fetch` wrapper, the
+`Post`/`PostSummary` models, a small DOM helper, the markdown renderer and four
+views dispatched from the hash route (`#/`, `#/posts/<slug>`, `#/login`,
+`#/write`, `#/edit/<slug>`) — hash routes need no server-side fallback.
 
-The API base URL is a compile-time constant (`String.fromEnvironment('API_URL')`,
-default `http://localhost:8080`). For `webdev build`, add the `-DAPI_URL=...` define
-to `dart2js_args` in `build.yaml`.
+Auth: `POST /auth/login` returns a JWT. It is kept in memory, mirrored to
+`localStorage` (`blog_token`) so a reload stays signed in, and sent as
+`Authorization: Bearer <token>`. Log out clears both.
 
-Deploy `build/` behind any static file server. Hash routing means no server-side
-fallback configuration is needed.
+Markdown becomes DOM nodes whose text is set with `textContent` — nothing is
+parsed as HTML — and only `http(s):`, `mailto:` and relative links become anchors,
+so a post body cannot inject markup.
 
-## Project layout
+The API never returns unpublished posts, so the editor keeps a freshly saved draft
+open; tick Published and save again to make it public.
 
-```
-web/
-  index.html   shell page, Tailwind CDN, loads main.dart.js
-  main.dart    everything: API client, hash router, views, markdown renderer
-build.yaml     dart2js flags for webdev build
-```
+API calls used:
 
-`main.dart` is intentionally a single file (~450 lines): config and auth state, a
-typed fetch wrapper, `Post`/`PostSummary` models, DOM helpers, a dependency-free
-markdown-to-DOM renderer, and four views (list, detail, login, editor with publish
-toggle) dispatched from the `#/` hash route.
+    POST   /auth/login          {email, password} -> {token}
+    GET    /posts               -> [{id, title, slug, excerpt, published_at}]
+    GET    /posts/{slug}        -> full post
+    POST   /posts        (auth) {title, body} -> post (unpublished)
+    PUT    /posts/{id}   (auth) {title?, body?, published?} -> post
+    DELETE /posts/{id}   (auth) -> 204
 
-## How auth works
+## Layout
 
-`POST /auth/login` returns a JWT. It is kept in memory and mirrored to
-`localStorage` (key `blog_token`) so a reload stays signed in; every request adds
-`Authorization: Bearer <token>` when present. Log out clears both.
+    web/index.html          shell page: loads styles.css and main.dart.js
+    web/main.dart           API client, markdown renderer, views, hash router
+    web/styles.css          plain CSS, light and dark via prefers-color-scheme
+    nginx.conf.template     /api proxy; API_URL filled in at start-up
 
-There is no registration UI; create a user against the API directly:
+## Deploy
 
-```sh
-curl -X POST $API/auth/register -H 'Content-Type: application/json' \
-  -d '{"email":"me@example.com","password":"secret"}'
-```
+Push to your own GitHub repo and the shipped workflow
+(`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
+GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
+`DEPLOY_KEY` secret — deploys it to your server over ssh. Set `API_URL` in
+`/srv/blog-dart/.env` on the server to reach your API.
 
-## API contract consumed
-
-```
-POST /auth/login          {email, password} -> {token}
-GET  /posts               -> [{id,title,slug,excerpt,published_at}]
-GET  /posts/{slug}        -> full post
-POST /posts        (auth) -> create {title, body}
-PUT  /posts/{id}   (auth) -> update {title?, body?, published?}
-DELETE /posts/{id} (auth) -> 204
-```
+---
+Part of [devai.io](https://devai.io) — the blog frontend series, one API and four
+clients: [`blog-react`](https://git.devai.io/templates/blog-react),
+[`blog-angular`](https://git.devai.io/templates/blog-angular), `blog-dart`,
+[`blog-flutter`](https://git.devai.io/templates/blog-flutter).

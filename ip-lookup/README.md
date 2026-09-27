@@ -1,79 +1,53 @@
 # ip-lookup
 
-> No search box needed — this app asks an API to describe _your own_ connection, then
-> pins it on a map.
+Open the page and it tells you your public IP address, rough location,
+internet provider and time zone — with a link to the spot on a map. No search
+box: the API describes the very request you send it.
 
-**What you'll build:** a page that shows your public IP address big and bold, plus the
-city, country, internet provider and time zone the internet sees for you — with a
-"View on map" link and a "Refresh" button.
+## Run
 
-**What you'll learn:** that some APIs read facts about the request _you_ send, so you
-give them no input at all. You'll also learn a subtle real-world trap: an API that
-always replies "200 OK" but hides failures in a `success: false` field you have to
-check yourself. And you'll build a URL from live data to link out to a map.
+Get it: `git clone https://git.devai.io/templates/ip-lookup.git`
 
-## Run it
-
-**The easy way:** double-click `index.html`. It opens in your browser and works — as
-long as you have internet, because it asks the lookup service about you live.
+Double-click `index.html` — it opens in your browser and works, as long as
+you're online (it asks the lookup service about you live). Nothing to install.
 
 Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-An **API** is just a URL that returns data instead of a web page. Open
-<https://ipwho.is/> in your browser — with no parameters, it describes whoever is
-asking, which right now is _you_. That's the raw JSON this app reads.
+## How it works
 
-```js
-const res = await fetch("https://ipwho.is/");
-const data = await res.json(); // { ip, city, country, connection: { isp }, ... }
-```
+Most APIs need you to say what you're asking about. This one doesn't:
+`fetch("https://ipwho.is/")` sends no parameters, and the service looks at
+where the request came from — your IP address — and answers with what it knows
+about it. Whoever opens the page gets their own answer. It's free and needs no
+key.
 
-There's nothing to type in. The request itself carries your address, and the server
-reads it. Refreshing just asks again.
+Two details worth copying:
 
-## How the code works
+- **`success: false` inside a 200.** When a lookup fails, this API still
+  answers HTTP 200 and puts `success: false` in the JSON. Checking `res.ok` is
+  not enough, so the code checks the field too.
+- **Nested, optional fields.** `connection.isp` and `timezone.id` live one level
+  down; `d.connection?.isp || "Unknown"` keeps the page working if either is
+  missing.
 
-- **`fetch("https://ipwho.is/")`** with no query string — the API uses the address the
-  request came from.
-- **The `success` check:** this service answers `200` even when it can't help, and
-  signals trouble with `data.success === false` plus a `message`. So after `res.ok` we
-  _also_ check that flag — a good reminder that "200 OK" doesn't always mean "it worked."
-- **`render(d)`** copies fields onto the page. `d.connection.isp` and `d.timezone.id`
-  are one level down inside nested objects; we reach them with `?.` so a missing object
-  can't crash the page.
-- **The map link** is built from `d.latitude` and `d.longitude` — string-building a URL
-  from live data is a handy trick.
-- **Refresh** just calls the same `load()` function again.
+The coordinates become an OpenStreetMap link, the Refresh button runs the same
+fetch again, and "Loading…" and a friendly error cover the waits and failures.
 
-## Try changing something
+Try it: show your `postal` code or `connection.org`, link to another map
+service instead, or refresh automatically with `setInterval(load, 30000)`.
 
-- Show your `region_code`, `postal` code or `connection.org` (open the raw JSON to see
-  every field available).
-- Swap the OpenStreetMap link for a Google Maps one:
-  `https://www.google.com/maps?q=LAT,LON`.
-- Auto-refresh every 30 seconds with `setInterval(load, 30000)`.
-
-## A note on VPNs and accuracy
-
-IP location is a best guess, not GPS. It usually lands on the right city, but it can be
-off. And if you're on a **VPN**, you'll see the VPN server's location and provider
-instead of your own — that's exactly how a VPN hides you. Turn one on and hit Refresh
-to watch your "location" jump to another country. Great party trick, useful lesson.
-
-## Files
+## Layout
 
 ```
-index.html    the layout and the Refresh button
-styles.css    how it looks (light + dark)
-app.js        fetch your details, check for success, render them
-Dockerfile    serve it with nginx (what compose builds)
-compose.yaml  serve it like production: docker compose up --build
+index.html   a status line, a hidden result card and the Refresh button
+app.js       load() and render()
+styles.css   the look; follows your system's light or dark mode
 ```
 
 ## Deploy
@@ -85,4 +59,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
-from the internet.
+from the internet. Next up, a real backend:
+[nasa-photo-proxy](https://git.devai.io/templates/nasa-photo-proxy).

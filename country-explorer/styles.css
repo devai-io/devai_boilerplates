@@ -1,7 +1,5 @@
-/* A small, self-contained stylesheet. No frameworks, no build step.
-   Colors adapt to the visitor's light/dark preference automatically. */
-
 :root {
+  color-scheme: light dark;
   --accent: #14b8a6;
   --bg: #0b0c0e;
   --surface: #14161a;
@@ -163,4 +161,9 @@ h1 {
   color: var(--text);
   font-size: 0.95rem;
   text-align: right;
+}
+
+/* Without this, .btn's display rule would beat the hidden attribute. */
+.btn[hidden] {
+  display: none;
 }

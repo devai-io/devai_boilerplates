@@ -1,74 +1,62 @@
 # dark-mode-toggle
 
-> A light/dark theme switch done the proper way — CSS variables, one attribute,
-> and a saved preference.
+A light/dark theme switch done the proper way — CSS variables, one attribute on
+`<html>`, and a remembered choice. It starts from the visitor's system setting
+and never flashes the wrong theme on load.
 
-**What you'll build:** a button that flips the whole page between a light and a
-dark theme. It remembers your choice for next time, and on your very first visit
-it matches whatever your device is already set to.
+## Run
 
-**What you'll learn:** how real websites do dark mode — define both color
-palettes in CSS as variables, switch between them by setting a single
-`data-theme` attribute on `<html>`, save the choice in `localStorage`, and
-respect the operating system's `prefers-color-scheme` as the default.
+Get it: `git clone https://git.devai.io/templates/dark-mode-toggle.git`
 
-## Run it
-
-**The easy way:** double-click `index.html`. It opens in your browser and works.
-There is nothing to install and no build step.
+Double-click `index.html` — it opens in your browser and works. Nothing to
+install, no build step.
 
 Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-Every color on the page is a CSS variable like `var(--bg)` or `var(--text)`. We
-define those variables twice — once for dark, once for light:
+## How it works
+
+Every color on the page is a CSS variable like `var(--bg)`. `styles.css`
+defines them twice:
 
 ```css
 [data-theme="dark"]  { --bg: #0b0c0e; --text: #e7e9ee; }
 [data-theme="light"] { --bg: #f5f7f9; --text: #14161a; }
 ```
 
-To switch themes, JavaScript changes _one thing_:
+To switch themes, JavaScript changes one thing:
 
 ```js
-document.documentElement.setAttribute("data-theme", "light");
+document.documentElement.dataset.theme = "light";
 ```
 
-Instantly every `var(--bg)` on the page picks up the new value. No element is
-touched individually — the CSS variables do all the work.
+and every `var(--bg)` on the page picks up the new value. No element is touched
+individually.
 
-## How the code works
+- **First visit:** there's no saved choice, so `initialTheme()` asks the OS with
+  `matchMedia("(prefers-color-scheme: light)")`. Before any JavaScript runs,
+  the CSS media query styles `:root:not([data-theme])` the same way.
+- **Clicking the button** flips the theme and saves it to `localStorage`. Only a
+  real click is saved, so until you click, every visit follows the OS setting.
+- **No flash:** a tiny `<script>` in `<head>` applies the saved theme before
+  the page is first drawn.
+- **`aria-pressed`** tells screen readers whether dark mode is on; the button's
+  label stays "Dark mode" so the state is never ambiguous.
 
-- **`setTheme(theme)`** sets `data-theme` on `<html>`, saves the choice to
-  `localStorage`, and updates the button's icon and label.
-- **`initialTheme()`** decides the starting theme: a saved choice wins; otherwise
-  `window.matchMedia("(prefers-color-scheme: light)")` asks the OS.
-- **The click handler** reads the current theme and calls `setTheme` with the
-  opposite one.
-- **In the CSS**, the `@media (prefers-color-scheme: light)` block only applies to
-  `:root:not([data-theme])` — so it styles the first paint before JavaScript
-  runs, then steps aside once a real choice is set.
-- **`aria-pressed`** on the button tells assistive tech whether dark mode is on.
+Try it: change `--accent` to any color, add a third "System" option that
+removes `data-theme` and the saved key, or tweak the `transition` speeds.
 
-## Try changing something
-
-- Change the accent: edit `--accent` at the top of `styles.css` to any color.
-- Add a third "system" option that removes `data-theme` and clears the saved key.
-- Tweak the `transition` on `body` and `.card` to make the swap faster or slower.
-
-## Files
+## Layout
 
 ```
-index.html      the toggle button and a demo card to preview the theme
-styles.css      both palettes, defined as CSS variables per [data-theme]
-app.js          set the attribute, save the choice, read the OS default
-Dockerfile      optional: serve it with nginx
-compose.yaml    optional: docker compose up --build
+index.html   the toggle button, a preview card, and the no-flash <script>
+app.js       initialTheme(), applyTheme() and the click handler
+styles.css   the two palettes as CSS variables
 ```
 
 ## Deploy
@@ -80,4 +68,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
-JavaScript, one concept at a time.
+JavaScript, one concept at a time. Next up:
+[image-slideshow](https://git.devai.io/templates/image-slideshow).

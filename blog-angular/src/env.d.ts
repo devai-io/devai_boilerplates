@@ -1,3 +1,2 @@
-// Injected at build time via the `define` option in angular.json.
-// Override: ng build --define "NG_APP_API_URL='https://api.example.com'"
+// Set by the `define` option in angular.json (default "/api").
 declare const NG_APP_API_URL: string;

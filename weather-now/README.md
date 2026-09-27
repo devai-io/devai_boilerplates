@@ -1,85 +1,52 @@
 # weather-now
 
-> Type any city and see the temperature, sky, humidity and wind right now — using
-> two real weather APIs, one feeding the other.
+Type any city and see its temperature, sky, humidity and wind right now, from
+the free Open-Meteo APIs. It teaches chaining two API calls: the answer to the
+first becomes the question for the second.
 
-**What you'll build:** a search box where you type a city name and instantly get its
-current weather: a big temperature, a friendly "Partly cloudy ⛅" label, plus humidity
-and wind.
+## Run
 
-**What you'll learn:** how to _chain_ two API calls — where the answer from the first
-request becomes the input to the second. Real apps do this constantly. You'll also
-turn cryptic API codes (weather is reported as plain numbers!) into words a human can
-read.
+Get it: `git clone https://git.devai.io/templates/weather-now.git`
 
-## Run it
-
-**The easy way:** double-click `index.html`. It works as long as you have internet,
-because it calls the weather services live.
+Double-click `index.html` — it opens in your browser and works, as long as
+you're online (it calls the weather service live). Nothing to install.
 
 Or serve it like production:
 
 ```sh
-docker compose up --build   # then open http://localhost:8080
+docker compose up --build
 ```
 
-## The idea in 30 seconds
+Then open http://localhost:8080.
 
-An **API** is a URL that returns data instead of a web page. The catch: the weather
-API doesn't know what "London" means — it only speaks in coordinates. So we ask two
-questions in a row.
+## How it works
 
-First, "where is London?" Open this in your browser to see the raw JSON:
-<https://geocoding-api.open-meteo.com/v1/search?name=London&count=1&language=en&format=json>
+Weather is looked up by coordinates, not city names, so `loadWeather(city)`
+makes two requests, one after the other:
 
-That gives back a `latitude` and `longitude`. Then we ask the second API, "what's the
-weather at those coordinates?":
-<https://api.open-meteo.com/v1/forecast?latitude=51.5&longitude=-0.13&current=temperature_2m,weather_code>
+1. **Geocode** — `geocoding-api.open-meteo.com/v1/search?name=Tokyo` answers
+   with the best match's `latitude` and `longitude`.
+2. **Forecast** — those numbers go into
+   `api.open-meteo.com/v1/forecast?latitude=…&longitude=…&current=…`, which
+   answers with the current temperature, humidity, wind and a `weather_code`.
 
-```js
-const place = geo.results[0]; // { name, country, latitude, longitude }
-const weather = await getWeatherAt(place.latitude, place.longitude);
-```
+`await` makes the second call wait for the first. The weather code is a WMO
+number (`0` = clear, `61` = light rain, …); `WEATHER_CODES` maps the common
+ones to words and an emoji. `encodeURIComponent` keeps spaces and accents in a
+city name from breaking the URL. Both APIs are free and need no key.
 
-That two-step dance — look something up, then use the answer — is the whole lesson.
+"Loading…" shows while the requests run, "City not found." when geocoding has
+no match, and a friendly error if either call fails.
 
-## How the code works
+Try it: add `&temperature_unit=fahrenheit` to the forecast URL, ask for
+`count=5` and let the user pick between matches, or add more weather codes.
 
-- **Step 1 (geocode).** We `fetch()` the search URL. The reply has a `results` array;
-  `results[0]` is the best match. If `results` is missing or empty, the city wasn't
-  found and we say so instead of crashing.
-- **Step 2 (weather).** We take `results[0].latitude` and `.longitude` and drop them
-  into the forecast URL, then `fetch()` that. The reply's `current` object holds
-  `temperature_2m`, `relative_humidity_2m`, `wind_speed_10m` and `weather_code`.
-- **`WEATHER_CODES`** is a small lookup object. The API reports the sky as a WMO code
-  (`0` = clear, `61` = light rain, `95` = thunderstorm…). We translate the number into
-  a label and an emoji.
-- **`await`** makes each call finish before the next line runs, so step 2 always has
-  step 1's coordinates. The whole thing sits inside `try / catch` so a dropped
-  connection shows a message, not a blank screen.
-
-## Try changing something
-
-- Switch to Fahrenheit: add `&temperature_unit=fahrenheit` to the forecast URL and
-  change the `°C` label in `render`.
-- Show `count=5` in the geocode URL and list the matches so the user can pick the
-  right "Springfield."
-- Add more `weather_code` entries (see the full WMO list) or swap in your own emoji.
-
-## A note on limits
-
-Open-Meteo is free and needs no key for this kind of use. If you refresh very rapidly
-you might briefly get an error response — that's why every call checks `res.ok` and
-falls into the friendly `catch` message.
-
-## Files
+## Layout
 
 ```
-index.html    the search box and the (hidden until loaded) weather card
-styles.css    how it looks (light + dark)
-app.js        chain the two fetches, map the code, render it
-Dockerfile    serve it with nginx (what compose builds)
-compose.yaml  serve it like production: docker compose up --build
+index.html   the search form, a status line and a hidden weather card
+app.js       the code table, loadWeather() and render()
+styles.css   the look; follows your system's light or dark mode
 ```
 
 ## Deploy
@@ -91,4 +58,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
-from the internet.
+from the internet. Next up:
+[github-profile](https://git.devai.io/templates/github-profile).

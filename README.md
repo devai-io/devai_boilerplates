@@ -2,14 +2,19 @@
 
 Every boilerplate and tutorial behind **[devai.io](https://devai.io)** — real, runnable code.
 
-Each folder is a complete, self-contained project with its own `README.md`. Nothing here is a
-snippet: clone the repo (or grab a single folder) and run it.
+Each folder is a complete, self-contained project with its own `README.md`, and each one is
+also published as **its own public repo** at
+[git.devai.io/templates](https://git.devai.io/templates) — grab just the one you want:
 
 ```sh
-git clone https://github.com/devai-io/devai_boilerplates.git
-cd devai_boilerplates/tip-calculator
+git clone https://git.devai.io/templates/tip-calculator.git
+cd tip-calculator
 docker compose up --build
 ```
+
+This monorepo is where they are written. Every push to `main` re-publishes each folder
+to `git.devai.io/templates/<folder>` with its own history (`scripts/publish.sh`, a
+`git subtree split` per folder — see [`.github/workflows/ci.yml`](./.github/workflows/ci.yml)).
 
 Browse them with previews and one-click zips at **[devai.io/templates](https://devai.io/templates)**.
 

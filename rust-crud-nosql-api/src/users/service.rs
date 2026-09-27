@@ -1,90 +1,85 @@
-use chrono::Utc;
-use mongodb::bson::{doc};
-use mongodb::{Database};
+use futures_util::TryStreamExt;
+use mongodb::Collection;
+use mongodb::bson::oid::ObjectId;
+use mongodb::bson::{DateTime, doc};
+use mongodb::options::ReturnDocument;
 
-use crate::Result;
-use crate::error::{AppError};
-use crate::users::models::{User};
-use crate::users::utils::{parse_users, parse_user, user_to_doc};
+use crate::auth::Role;
+use crate::error::{ApiError, conflict_on_duplicate};
+use crate::users::models::{User, UserCreateRequest, UserUpdateRequest};
 
+const EMAIL_TAKEN: &str = "email already registered";
 
-pub async fn get_user_by_id(_id: String, _db: Database) -> Result<User> {
-    println!("[get_user_by_id] id {:?}", &_id);
-    let oid = mongodb::bson::oid::ObjectId::with_string(&_id).unwrap();
-    let filter = doc! { "_id": oid };
-    let mut _cursor = _db.collection("users").find(filter, None).await.map_err(|_e| { 
-        println!("ERROR [get_user_by_id] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    return parse_user(_cursor).await;
+pub async fn get_users(users: &Collection<User>) -> Result<Vec<User>, ApiError> {
+    let cursor = users.find(doc! {}).sort(doc! { "created_at": 1 }).await?;
+    Ok(cursor.try_collect().await?)
 }
 
-
-pub async fn get_user_by_email(email: &str, _db: Database) -> Result<User> {
-    println!("[get_user_by_email] email {:?}", &email);
-    let filter = doc! { "email": email };
-    let mut _cursor = _db.collection("users").find(filter, None).await.map_err(|_e| { 
-        println!("ERROR [get_user_by_email] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    return parse_user(_cursor).await;
+pub async fn get_user_by_id(
+    users: &Collection<User>,
+    id: ObjectId,
+) -> Result<Option<User>, ApiError> {
+    Ok(users.find_one(doc! { "_id": id }).await?)
 }
 
-
-pub async fn get_users(_db: Database) -> Result<Vec<User>> {
-    let mut _cursor = _db.collection("users").find(None, None).await.map_err(|_e| { 
-        println!("ERROR [get_user_by_email] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    return parse_users(_cursor).await;
+pub async fn get_user_by_email(
+    users: &Collection<User>,
+    email: &str,
+) -> Result<Option<User>, ApiError> {
+    Ok(users.find_one(doc! { "email": email }).await?)
 }
 
+pub async fn create_user(
+    users: &Collection<User>,
+    req: &UserCreateRequest,
+    password_hash: String,
+    role: Role,
+) -> Result<User, ApiError> {
+    let now = DateTime::now();
+    let user = User {
+        id: ObjectId::new(),
+        email: req.email.clone(),
+        name: req.name.clone(),
+        password_hash,
+        role,
+        created_at: now,
+        updated_at: now,
+    };
+    users
+        .insert_one(&user)
+        .await
+        .map_err(conflict_on_duplicate(EMAIL_TAKEN))?;
+    Ok(user)
+}
 
-pub async fn create_user(_req: User, _db: Database) -> Result<()> {
-    let doc = user_to_doc(&_req);
-    let _cursor = _db.collection("users").insert_one(doc, None).await.map_err(|_e| { 
-        println!("ERROR [create_user] {:?}", _e);
-        return AppError::DataError;
-    })?;
+pub async fn update_user(
+    users: &Collection<User>,
+    req: &UserUpdateRequest,
+) -> Result<Option<User>, ApiError> {
+    let update = doc! { "$set": {
+        "email": &req.email,
+        "name": &req.name,
+        "role": req.role.as_str(),
+        "updated_at": DateTime::now(),
+    }};
+    users
+        .find_one_and_update(doc! { "_id": req.id }, update)
+        .return_document(ReturnDocument::After)
+        .await
+        .map_err(conflict_on_duplicate(EMAIL_TAKEN))
+}
+
+pub async fn update_password(
+    users: &Collection<User>,
+    id: ObjectId,
+    password_hash: &str,
+) -> Result<(), ApiError> {
+    let update = doc! { "$set": { "password_hash": password_hash, "updated_at": DateTime::now() } };
+    users.update_one(doc! { "_id": id }, update).await?;
     Ok(())
 }
 
-
-pub async fn update_user(_req: User, _db: Database) -> Result<()> {
-    println!("[update_user] Searching user id={}, name={}", &_req.id.clone().unwrap(), &_req.name);
-    let oid = mongodb::bson::oid::ObjectId::with_string(&_req.id.unwrap()).unwrap();
-
-    let role = &_req.role.ok_or(AppError::DataError)?;
-
-    let filter = doc! { "_id": oid };
-    let updates = doc! { "$set": {
-        "email": &_req.email,
-        "name": &_req.name,
-        "role": &role.to_string(),
-        "email": &_req.email,
-        "updated_at": Utc::now()}
-        };
-    let _cursor = _db.collection("users").update_one(filter, updates, None).await.map_err(|_e| { 
-        println!("ERROR [update_user] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    Ok(())
-}
-
-
-pub async fn update_user_password(_req: User, _db: Database) -> Result<()> {
-    println!("[update_user_password] Searching user id={}, name={}", &_req.id.clone().unwrap(), &_req.name);
-    let oid = mongodb::bson::oid::ObjectId::with_string(&_req.id.unwrap()).unwrap();
-    let password = &_req.password.ok_or(AppError::DataError)?;
-
-    let filter = doc! { "_id": oid };
-    let updates = doc! { "$set": {
-        "password": &password,
-        "updated_at": Utc::now()}
-        };
-    let _cursor = _db.collection("users").update_one(filter, updates, None).await.map_err(|_e| { 
-        println!("ERROR [update_user_password] {:?}", _e);
-        return AppError::DataError;
-    })?;
-    Ok(())
+pub async fn delete_user(users: &Collection<User>, id: ObjectId) -> Result<bool, ApiError> {
+    let result = users.delete_one(doc! { "_id": id }).await?;
+    Ok(result.deleted_count > 0)
 }

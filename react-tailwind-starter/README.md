@@ -6,7 +6,7 @@ in seconds and hot-reloads instantly.
 
 ## Run
 
-Get it: `git clone https://git.devai.io/templates/react-tailwind-starter.git`
+Get it: `git clone https://github.com/devai-io/devai_boilerplates.git`, then `cd devai_boilerplates/react-tailwind-starter`
 
     docker compose up --build
 
@@ -36,11 +36,12 @@ design tokens with an `@theme { … }` block in the same CSS file.
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/react-tailwind-starter my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh.
 
 ---
 Part of [devai.io](https://devai.io) — UI starters: `react-tailwind-starter` and
-[`react-shadcn-starter`](https://git.devai.io/templates/react-shadcn-starter).
+[`react-shadcn-starter`](https://github.com/devai-io/devai_boilerplates/tree/main/react-shadcn-starter).

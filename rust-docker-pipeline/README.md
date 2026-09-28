@@ -6,8 +6,8 @@ seconds. And when your server is too small to compile Rust, ship a prebuilt bina
 
 ## Run
 
-    git clone https://git.devai.io/templates/rust-docker-pipeline.git
-    cd rust-docker-pipeline
+    git clone https://github.com/devai-io/devai_boilerplates.git
+    cd devai_boilerplates/rust-docker-pipeline
     docker compose up --build
 
 http://localhost:8080 answers `Hello from rust-docker-pipeline!` (`/health` → `ok`).
@@ -54,7 +54,8 @@ an ARM laptop), and move `bin/` with scp or rsync: it is git-ignored.
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/rust-docker-pipeline my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh.

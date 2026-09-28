@@ -7,7 +7,7 @@ source — `Button`, `Card`, `Input`.
 
 ## Run
 
-Get it: `git clone https://git.devai.io/templates/react-shadcn-starter.git`
+Get it: `git clone https://github.com/devai-io/devai_boilerplates.git`, then `cd devai_boilerplates/react-shadcn-starter`
 
     docker compose up --build
 
@@ -48,12 +48,13 @@ variables over the ones in `src/index.css`.
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/react-shadcn-starter my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh.
 
 ---
 Part of [devai.io](https://devai.io) — UI starters:
-[`react-tailwind-starter`](https://git.devai.io/templates/react-tailwind-starter) and
+[`react-tailwind-starter`](https://github.com/devai-io/devai_boilerplates/tree/main/react-tailwind-starter) and
 `react-shadcn-starter`.

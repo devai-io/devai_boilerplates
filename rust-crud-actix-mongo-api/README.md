@@ -6,8 +6,8 @@ header, a `CurrentUser` extractor, and role checks (`User` / `Admin`) on protect
 
 ## Run
 
-    git clone https://git.devai.io/templates/rust-crud-actix-mongo-api.git
-    cd rust-crud-actix-mongo-api
+    git clone https://github.com/devai-io/devai_boilerplates.git
+    cd devai_boilerplates/rust-crud-actix-mongo-api
     docker compose up --build
 
 The API answers on http://localhost:8080 (`curl localhost:8080/health` → `ok`).
@@ -70,7 +70,8 @@ Try it:
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/rust-crud-actix-mongo-api my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh. Set a long random
@@ -78,5 +79,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — Rust API boilerplates, alongside
-[`rust-crud-sql-api`](https://git.devai.io/templates/rust-crud-sql-api) and
-[`rust-crud-nosql-api`](https://git.devai.io/templates/rust-crud-nosql-api).
+[`rust-crud-sql-api`](https://github.com/devai-io/devai_boilerplates/tree/main/rust-crud-sql-api) and
+[`rust-crud-nosql-api`](https://github.com/devai-io/devai_boilerplates/tree/main/rust-crud-nosql-api).

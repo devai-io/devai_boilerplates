@@ -6,7 +6,7 @@ box: the API describes the very request you send it.
 
 ## Run
 
-Get it: `git clone https://git.devai.io/templates/ip-lookup.git`
+Get it: `git clone https://github.com/devai-io/devai_boilerplates.git`, then `cd devai_boilerplates/ip-lookup`
 
 Double-click `index.html` — it opens in your browser and works, as long as
 you're online (it asks the lookup service about you live). Nothing to install.
@@ -52,7 +52,8 @@ styles.css   the look; follows your system's light or dark mode
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/ip-lookup my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh.
@@ -60,4 +61,4 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 ---
 Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
 from the internet. Next up, a real backend:
-[nasa-photo-proxy](https://git.devai.io/templates/nasa-photo-proxy).
+[nasa-photo-proxy](https://github.com/devai-io/devai_boilerplates/tree/main/nasa-photo-proxy).

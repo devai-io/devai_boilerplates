@@ -7,7 +7,7 @@ blog engine series (they all implement the same API).
 
 ## Run
 
-Get it: `git clone https://git.devai.io/templates/blog-react.git`
+Get it: `git clone https://github.com/devai-io/devai_boilerplates.git`, then `cd devai_boilerplates/blog-react`
 
     docker compose up --build
 
@@ -69,7 +69,8 @@ API calls used:
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/blog-react my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh. Set `API_URL` in
@@ -77,6 +78,6 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — the blog frontend series, one API and four
-clients: `blog-react`, [`blog-angular`](https://git.devai.io/templates/blog-angular),
-[`blog-dart`](https://git.devai.io/templates/blog-dart),
-[`blog-flutter`](https://git.devai.io/templates/blog-flutter).
+clients: `blog-react`, [`blog-angular`](https://github.com/devai-io/devai_boilerplates/tree/main/blog-angular),
+[`blog-dart`](https://github.com/devai-io/devai_boilerplates/tree/main/blog-dart),
+[`blog-flutter`](https://github.com/devai-io/devai_boilerplates/tree/main/blog-flutter).

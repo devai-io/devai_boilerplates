@@ -6,7 +6,7 @@ repos and followers. The cleanest first taste of talking to a real API with
 
 ## Run
 
-Get it: `git clone https://git.devai.io/templates/github-profile.git`
+Get it: `git clone https://github.com/devai-io/devai_boilerplates.git`, then `cd devai_boilerplates/github-profile`
 
 Double-click `index.html` — it opens in your browser and works, as long as
 you're online (it calls GitHub live). Nothing to install.
@@ -51,7 +51,8 @@ styles.css   the look; follows your system's light or dark mode
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/github-profile my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh.
@@ -59,4 +60,4 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 ---
 Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
 from the internet. Next up:
-[random-quote](https://git.devai.io/templates/random-quote).
+[random-quote](https://github.com/devai-io/devai_boilerplates/tree/main/random-quote).

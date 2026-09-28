@@ -6,7 +6,7 @@ ticking away. It's your first look at doing something on a timer with
 
 ## Run
 
-Get it: `git clone https://git.devai.io/templates/countdown-timer.git`
+Get it: `git clone https://github.com/devai-io/devai_boilerplates.git`, then `cd devai_boilerplates/countdown-timer`
 
 Double-click `index.html` — it opens in your browser and works. Nothing to
 install, no build step.
@@ -45,7 +45,8 @@ styles.css   the look; follows your system's light or dark mode
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/countdown-timer my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh.
@@ -53,4 +54,4 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 ---
 Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
 JavaScript, one concept at a time. Next up:
-[dark-mode-toggle](https://git.devai.io/templates/dark-mode-toggle).
+[dark-mode-toggle](https://github.com/devai-io/devai_boilerplates/tree/main/dark-mode-toggle).

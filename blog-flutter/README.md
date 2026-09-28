@@ -7,7 +7,7 @@ generation. It works against any backend of the devai.io blog engine series.
 
 ## Run
 
-Get it: `git clone https://git.devai.io/templates/blog-flutter.git`
+Get it: `git clone https://github.com/devai-io/devai_boilerplates.git`, then `cd devai_boilerplates/blog-flutter`
 
 Only `lib/`, `pubspec.yaml`, `pubspec.lock` and `analysis_options.yaml` ship here —
 no platform shells. Generate the ones you want once, then run (Flutter 3.47):
@@ -65,12 +65,13 @@ API calls used:
 
 A device app ships through the app stores (`flutter build appbundle`,
 `flutter build ipa`), not to a server, so there is no Dockerfile or compose file.
-Push to your own GitHub repo and the shipped workflow (`.github/workflows/ci.yml`)
+Make this folder the root of your own repo (`cp -r devai_boilerplates/blog-flutter my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow (`.github/workflows/ci.yml`)
 clones Flutter 3.47.4 from the official repository and runs
 `flutter pub get --enforce-lockfile` and `flutter analyze`.
 
 ---
 Part of [devai.io](https://devai.io) — the blog frontend series, one API and four
-clients: [`blog-react`](https://git.devai.io/templates/blog-react),
-[`blog-angular`](https://git.devai.io/templates/blog-angular),
-[`blog-dart`](https://git.devai.io/templates/blog-dart), `blog-flutter`.
+clients: [`blog-react`](https://github.com/devai-io/devai_boilerplates/tree/main/blog-react),
+[`blog-angular`](https://github.com/devai-io/devai_boilerplates/tree/main/blog-angular),
+[`blog-dart`](https://github.com/devai-io/devai_boilerplates/tree/main/blog-dart), `blog-flutter`.

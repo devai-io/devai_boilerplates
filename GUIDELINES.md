@@ -1,10 +1,10 @@
 # devai_boilerplates — the standard
 
 Internal guidelines. Read fully before creating or editing any project here.
-Every folder is packaged verbatim into a downloadable zip and a browsable code
-preview on devai.io, and published as its own public repo at
-`https://git.devai.io/templates/<folder>` (see `scripts/publish.sh`) — the tree
-you write IS the product, and it must stand alone as a repo root.
+This repo, `github.com/devai-io/devai_boilerplates`, is the one public home of
+every project on devai.io. Every folder is also packaged verbatim into a
+downloadable zip and a browsable code preview on the site — the tree you write
+IS the product, and it must stand alone once copied out as a repo root.
 
 ## The idea
 
@@ -234,8 +234,11 @@ omitted, never left empty.
 
 <One line: what you see and where — usually http://localhost:8080.>
 
-<Get it: `git clone https://git.devai.io/templates/<project-name>.git` — a
-line above the run block, since the repo is how most people arrive.>
+<Get it: `git clone https://github.com/devai-io/devai_boilerplates.git`, then
+`cd devai_boilerplates/<project-name>` — a line above the run block, since the
+repo is how most people arrive. Sibling links are absolute
+`https://github.com/devai-io/devai_boilerplates/tree/main/<folder>` URLs, so
+they still work inside a downloaded zip.>
 
 <Optional: running without Docker, in a few lines.>
 
@@ -249,7 +252,8 @@ follows as "or serve it like production".
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/<project-name> my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh.
@@ -336,5 +340,6 @@ login, authoring form with publish toggle.
 5. Register it on the site: one entry in `src/data/templates.ts` of
    `devai_io` (`codeDir` = the folder name), then push both repos —
    the site's CI clones this repo at build time.
-6. Push to `main`: the `publish` workflow splits every folder into its own
-   repo at `git.devai.io/templates/<folder>` (or run `scripts/publish.sh`).
+6. Push to `main`: this repo's own CI (`.github/workflows/ci.yml` at the root)
+   validates every compose file and smoke-tests each folder the push changed —
+   the per-folder workflows only run once a folder becomes someone's repo root.

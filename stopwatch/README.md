@@ -6,7 +6,7 @@ measure it, don't count it.
 
 ## Run
 
-Get it: `git clone https://git.devai.io/templates/stopwatch.git`
+Get it: `git clone https://github.com/devai-io/devai_boilerplates.git`, then `cd devai_boilerplates/stopwatch`
 
 Double-click `index.html` — it opens in your browser and works. Nothing to
 install, no build step.
@@ -50,7 +50,8 @@ styles.css   the look — tabular digits so the numbers don't jiggle
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/stopwatch my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh.
@@ -58,4 +59,4 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 ---
 Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
 JavaScript, one concept at a time. Next up:
-[color-picker](https://git.devai.io/templates/color-picker).
+[color-picker](https://github.com/devai-io/devai_boilerplates/tree/main/color-picker).

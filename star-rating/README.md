@@ -6,7 +6,7 @@ your rating next time you visit. It teaches the difference between a
 
 ## Run
 
-Get it: `git clone https://git.devai.io/templates/star-rating.git`
+Get it: `git clone https://github.com/devai-io/devai_boilerplates.git`, then `cd devai_boilerplates/star-rating`
 
 Double-click `index.html` — it opens in your browser and works. Nothing to
 install, no build step.
@@ -48,7 +48,8 @@ styles.css   the stars' off / on look; follows light or dark mode
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/star-rating my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh.
@@ -56,4 +57,4 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 ---
 Part of [devai.io](https://devai.io) — the Web Basics track: HTML, CSS &
 JavaScript, one concept at a time. Next up:
-[char-counter](https://git.devai.io/templates/char-counter).
+[char-counter](https://github.com/devai-io/devai_boilerplates/tree/main/char-counter).

@@ -4,28 +4,58 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+    inputs:
+      all:
+        description: Smoke-test every project, not only the changed ones
+        type: boolean
+        default: false
 
 jobs:
   validate:
     runs-on: ubuntu-latest
+    outputs:
+      projects: ${{ steps.changed.outputs.projects }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - run: |
           for f in */compose.yaml; do
             (cd "$(dirname "$f")" && docker compose config -q) || { echo "invalid: $f"; exit 1; }
           done
           echo "all compose files valid"
+      # Folders with a compose.yaml that this push or PR touched (every one on a manual "all" run).
+      - id: changed
+        run: |
+          if [ "${{ inputs.all }}" = true ]; then
+            dirs=$(ls -d */compose.yaml | xargs -n1 dirname)
+          else
+            base=${{ github.event.pull_request.base.sha || github.event.before }}
+            git cat-file -e "$base^{commit}" 2>/dev/null || base=$(git rev-list --max-parents=0 HEAD)
+            dirs=$(git diff --name-only "$base" HEAD | cut -d/ -f1 | sort -u \
+              | while read -r d; do [ -f "$d/compose.yaml" ] && echo "$d"; done)
+          fi
+          echo "projects=$(printf '%s\n' $dirs | jq -Rsc 'split("\n") | map(select(length > 0))')" >> "$GITHUB_OUTPUT"
 
-  # Every folder → its own repo at git.devai.io/templates/<folder> (scripts/publish.sh).
-  publish:
+  # The per-folder workflows only run once a folder is someone's repo root, so this
+  # repo runs the same smoke test itself: build the stack, wait for it to answer.
+  smoke:
     needs: validate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: needs.validate.outputs.projects != '[]'
     runs-on: ubuntu-latest
-    concurrency: publish
+    strategy:
+      fail-fast: false
+      matrix:
+        project: ${{ fromJSON(needs.validate.outputs.projects) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.project }}
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
-      - run: scripts/publish.sh
-        env:
-          FORGEJO_TOKEN: ${{ secrets.FORGEJO_TOKEN }}
+      - run: docker compose up -d --build
+      - run: |
+          timeout 120 sh -c 'until curl -fs localhost:8080/health || curl -fs localhost:8080/ || curl -fs localhost:8081/; do sleep 2; done' >/dev/null \
+            || { docker compose logs; exit 1; }
+      - if: always()
+        run: docker compose down -v

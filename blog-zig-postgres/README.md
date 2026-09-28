@@ -8,8 +8,8 @@ framework.
 
 ## Run
 
-    git clone https://git.devai.io/templates/blog-zig-postgres.git
-    cd blog-zig-postgres
+    git clone https://github.com/devai-io/devai_boilerplates.git
+    cd devai_boilerplates/blog-zig-postgres
     docker compose up --build
 
 The API answers on http://localhost:8080 (`curl localhost:8080/health` → `ok`).
@@ -82,7 +82,8 @@ README with the exact steps.
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/blog-zig-postgres my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh.

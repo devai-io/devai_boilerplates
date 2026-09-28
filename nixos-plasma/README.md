@@ -10,8 +10,8 @@ out of its way.
 On a UEFI machine (or VM) running NixOS — the [minimal ISO](https://nixos.org/download/)
 install is enough:
 
-    sudo nix-shell -p git --run 'git clone https://git.devai.io/templates/nixos-plasma.git /etc/nixos-plasma'
-    cd /etc/nixos-plasma
+    sudo nix-shell -p git --run 'git clone https://github.com/devai-io/devai_boilerplates.git /etc/devai_boilerplates'
+    cd /etc/devai_boilerplates/nixos-plasma
     # 1. Replace the stub hardware config with the one for THIS machine
     sudo nixos-generate-config --show-hardware-config | sudo tee hosts/desktop/hardware-configuration.nix >/dev/null
     # 2. Rename the user and host (below), then build and switch
@@ -57,13 +57,14 @@ Notes:
 ## Deploy
 
 `sudo nixos-rebuild switch --flake .#desktop` is the deploy: run it after every
-change. Push to your own GitHub repo and the shipped workflow
+change. Make this folder the root of your own repo (`cp -r devai_boilerplates/nixos-plasma my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) evaluates the whole system on every push and pull
 request — `nix flake check` plus the system derivation, nothing is built — inside
 the official `nixos/nix` image.
 
 ---
 Part of [devai.io](https://devai.io) — the NixOS desktop series:
-[`nixos-hyprland`](https://git.devai.io/templates/nixos-hyprland),
-[`nixos-gnome`](https://git.devai.io/templates/nixos-gnome),
-[`nixos-plasma`](https://git.devai.io/templates/nixos-plasma).
+[`nixos-hyprland`](https://github.com/devai-io/devai_boilerplates/tree/main/nixos-hyprland),
+[`nixos-gnome`](https://github.com/devai-io/devai_boilerplates/tree/main/nixos-gnome),
+[`nixos-plasma`](https://github.com/devai-io/devai_boilerplates/tree/main/nixos-plasma).

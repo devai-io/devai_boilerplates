@@ -6,8 +6,8 @@ official `mongodb` driver, argon2 passwords and role-based routes (`User` / `Adm
 
 ## Run
 
-    git clone https://git.devai.io/templates/rust-crud-nosql-api.git
-    cd rust-crud-nosql-api
+    git clone https://github.com/devai-io/devai_boilerplates.git
+    cd devai_boilerplates/rust-crud-nosql-api
     docker compose up --build
 
 The API answers on http://localhost:8080 (`curl localhost:8080/health` → `ok`).
@@ -82,7 +82,8 @@ Try it:
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/rust-crud-nosql-api my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh. Set a long random
@@ -90,5 +91,5 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 
 ---
 Part of [devai.io](https://devai.io) — Rust API boilerplates. Same API on Postgres:
-[`rust-crud-sql-api`](https://git.devai.io/templates/rust-crud-sql-api); actix-web take:
-[`rust-crud-actix-mongo-api`](https://git.devai.io/templates/rust-crud-actix-mongo-api).
+[`rust-crud-sql-api`](https://github.com/devai-io/devai_boilerplates/tree/main/rust-crud-sql-api); actix-web take:
+[`rust-crud-actix-mongo-api`](https://github.com/devai-io/devai_boilerplates/tree/main/rust-crud-actix-mongo-api).

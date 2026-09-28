@@ -7,7 +7,7 @@ API keys out of the browser.
 
 ## Run
 
-Get it: `git clone https://git.devai.io/templates/nasa-photo-proxy.git`
+Get it: `git clone https://github.com/devai-io/devai_boilerplates.git`, then `cd devai_boilerplates/nasa-photo-proxy`
 
 With [Node.js](https://nodejs.org) 22 or newer — there are no npm packages to
 install:
@@ -71,7 +71,8 @@ package.json        name + "start" script; the lockfile is empty on purpose
 
 ## Deploy
 
-Push to your own GitHub repo and the shipped workflow
+Make this folder the root of your own repo (`cp -r devai_boilerplates/nasa-photo-proxy my-app`,
+then `git init` inside it), push it to GitHub, and the shipped workflow
 (`.github/workflows/ci.yml`) tests the compose stack, publishes the image to
 GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 `DEPLOY_KEY` secret — deploys it to your server over ssh. Put your real
@@ -80,4 +81,4 @@ GHCR, and — once you set the `DEPLOY_HOST` / `DEPLOY_USER` variables and
 ---
 Part of [devai.io](https://devai.io) — the APIs & Data track: fetch real data
 from the internet. Previous:
-[ip-lookup](https://git.devai.io/templates/ip-lookup).
+[ip-lookup](https://github.com/devai-io/devai_boilerplates/tree/main/ip-lookup).
